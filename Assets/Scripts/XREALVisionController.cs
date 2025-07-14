@@ -51,12 +51,12 @@ namespace CompanionIntelligence.Core
         [SerializeField] private bool enableUIFeedback = true;
         [SerializeField] private float statusDisplayDuration = 3f;
         
-        // Available models for Ollama
+        // Available models for Ollama (XREAL optimized)
         private readonly string[] availableModels = {
             "llava:7b",
-            "llava:13b",
+            "llava:13b", 
             "moondream:latest",
-            "llama3.2-vision:latest"
+            "llama3.2-vision:11b"
         };
         
         // State tracking

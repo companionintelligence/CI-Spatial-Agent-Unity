@@ -155,7 +155,7 @@ namespace CompanionIntelligence.Core
             GameObject settingsPanel = CreateUIPanel(canvasGO, "SettingsPanel", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(400, 400));
             settingsPanel.SetActive(false);
             
-            CreateUIDropdown(settingsPanel, "ModelDropdown", new Vector2(0, 100), new string[] { "llava:7b", "llava:13b", "moondream:latest" });
+            CreateUIDropdown(settingsPanel, "ModelDropdown", new Vector2(0, 100), new string[] { "llava:7b", "llava:13b", "moondream:latest", "llama3.2-vision:11b" });
             CreateUIDropdown(settingsPanel, "ModeDropdown", new Vector2(0, 50), new string[] { "Image + Text", "Image Only", "Text Only" });
             CreateUISlider(settingsPanel, "TemperatureSlider", new Vector2(0, 0));
             CreateUIToggle(settingsPanel, "ContinuousModeToggle", "Continuous Mode", new Vector2(0, -50));
