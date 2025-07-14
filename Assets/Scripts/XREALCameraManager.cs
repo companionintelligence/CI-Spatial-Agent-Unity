@@ -7,6 +7,7 @@ namespace CompanionIntelligence.Core
     /// <summary>
     /// XREAL Camera Manager - Handles camera capture for vision processing
     /// Simplified and consolidated from multiple camera components
+    /// Implements Unity best practices for performance and memory management
     /// </summary>
     public class XREALCameraManager : MonoBehaviour
     {
@@ -53,7 +54,7 @@ namespace CompanionIntelligence.Core
                 targetCamera = Camera.main;
                 if (targetCamera == null)
                 {
-                    targetCamera = FindObjectOfType<Camera>();
+                    targetCamera = FindAnyObjectByType<Camera>();
                 }
             }
             
@@ -104,11 +105,11 @@ namespace CompanionIntelligence.Core
             OnCaptureStarted?.Invoke();
             LogDebug("Starting image capture...");
             
+            // Wait for end of frame to ensure camera has rendered
+            yield return new WaitForEndOfFrame();
+            
             try
             {
-                // Wait for end of frame to ensure camera has rendered
-                yield return new WaitForEndOfFrame();
-                
                 // Store original camera target texture
                 RenderTexture originalTarget = targetCamera.targetTexture;
                 
