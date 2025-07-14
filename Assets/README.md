@@ -13,19 +13,18 @@ This document outlines the technical architecture for creating a persistent, emb
 
 ## 🗃️ Project TODO List 
 
-Use example 5 of this repo as a guide https://github.com/xrdevrob/QuestCameraKit/tree/main/Unity-QuestVisionKit/Assets/Samples/5%20ImageLLM
+Consolidate the logic in Assets/Scripts. This project will be using the xreal sdk and ollama
 
-This ImageLLM unity scene is built for the quest 3 and uses openai
-We need to create a similar tool using the xreal sdk and ollam
+Use ImageLLM example 5 of this repo as a guide https://github.com/xrdevrob/QuestCameraKit/tree/main/Unity-QuestVisionKit/Assets/Samples/5%20ImageLLM
+
+ImageLLM example unity scene is built for the quest 3 and uses openai
+This project will be using the xreal sdk and ollama
 
 Reminder of architecture:
 
-Ask Ollama 's vision model (or any other multi-modal LLM) for context of your current scene.
+Ask Ollama 's vision models for context of your current scene via taking a camera image from the device's camera.
 
-We use stt tts API to create a command. We then send this command together with a screenshot to the Vision model. Lastly, we get the response back and use the Text to speech API to turn the response text into an audio file in Unity to speak the response. 
-
-The user can select different speakers, models, and speed. For the command we can add additional instructions for the model, as well as select an image, image & text, or just a text mode. The whole loop takes anywhere from 2-6 seconds, depending on the internet connection.
-
+We use stt tts API to create a command. e.g "What am I looking at?" We then send this command together with a camera image to the ollama Vision model. Lastly, we get the response back and use the Text to speech logic to turn the response text into an audio file in Unity to speak the response. 
 #### Research Examples
 - [ ] **1** Review the example XREAL projects 
 - [ ] **1.1** Create a reference to needed Code in the example projects
