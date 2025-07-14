@@ -1,403 +1,167 @@
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
 
 namespace CompanionIntelligence.Core
 {
     /// <summary>
-    /// XREAL Vision Scene Setup Helper
-    /// Automatically configures a scene for the vision-language system
+    /// XREAL Vision Scene Setup - Automatic scene configuration for the consolidated vision system
+    /// Simplified setup script that creates and configures all necessary components
     /// </summary>
     public class XREALVisionSceneSetup : MonoBehaviour
     {
         [Header("Auto Setup Configuration")]
         [SerializeField] private bool setupOnAwake = true;
-        [SerializeField] private bool createUI = true;
-        [SerializeField] private bool configureComponents = true;
-        [SerializeField] private bool addTestingControls = true;
+        [SerializeField] private bool createUICanvas = true;
+        [SerializeField] private bool addDebugControls = true;
         
-        [Header("Ollama Server Settings")]
-        [SerializeField] private string defaultServerIP = "192.168.1.100";
-        [SerializeField] private int defaultServerPort = 11434;
-        [SerializeField] private string defaultModel = "llava:7b";
+        [Header("Server Configuration")]
+        [SerializeField] private string ollamaServerIP = "192.168.1.100";
+        [SerializeField] private int ollamaServerPort = 11434;
+        [SerializeField] private string ollamaModel = "llava:7b";
         
-        [Header("Prefab References")]
-        [SerializeField] private GameObject visionSystemPrefab;
-        [SerializeField] private GameObject uiCanvasPrefab;
+        [Header("API Keys")]
+        [SerializeField] private string openAIApiKey = "YOUR_OPENAI_API_KEY";
         
         private void Awake()
         {
             if (setupOnAwake)
             {
-                SetupVisionScene();
+                SetupXREALVisionScene();
             }
         }
         
         [ContextMenu("Setup XREAL Vision Scene")]
-        public void SetupVisionScene()
+        public void SetupXREALVisionScene()
         {
-            Debug.Log("[XREALVisionSceneSetup] Setting up XREAL Vision scene...");
+            Debug.Log("[XREALVisionSceneSetup] Setting up XREAL Vision Scene...");
             
-            // Create or find main vision system
-            GameObject visionSystem = SetupVisionSystem();
+            // Create main vision system GameObject
+            GameObject visionSystemGO = CreateVisionSystemGameObject();
             
             // Create UI if requested
-            if (createUI)
+            if (createUICanvas)
             {
-                SetupVisionUI(visionSystem);
+                CreateSimpleUI();
             }
             
-            // Configure components
-            if (configureComponents)
+            // Add debug controls if requested
+            if (addDebugControls)
             {
-                ConfigureVisionComponents(visionSystem);
+                AddDebugControls(visionSystemGO);
             }
             
-            // Add testing controls
-            if (addTestingControls)
-            {
-                SetupTestingControls(visionSystem);
-            }
-            
-            Debug.Log("[XREALVisionSceneSetup] XREAL Vision scene setup complete!");
+            Debug.Log("[XREALVisionSceneSetup] XREAL Vision Scene setup complete!");
         }
         
-        private GameObject SetupVisionSystem()
+        private GameObject CreateVisionSystemGameObject()
         {
             // Check if vision system already exists
-            var existing = FindObjectOfType<VisionLanguageManager>();
-            if (existing != null)
+            XREALVisionSystem existingSystem = FindObjectOfType<XREALVisionSystem>();
+            if (existingSystem != null)
             {
-                Debug.Log("[XREALVisionSceneSetup] Vision system already exists, using existing");
-                return existing.gameObject;
+                Debug.Log("[XREALVisionSceneSetup] Vision system already exists, configuring existing system");
+                ConfigureExistingSystem(existingSystem.gameObject);
+                return existingSystem.gameObject;
             }
             
-            // Create new vision system
-            GameObject visionSystem;
+            // Create new vision system GameObject
+            GameObject visionSystemGO = new GameObject("XREAL Vision System");
             
-            if (visionSystemPrefab != null)
-            {
-                visionSystem = Instantiate(visionSystemPrefab);
-            }
-            else
-            {
-                visionSystem = new GameObject("XREALVisionSystem");
-            }
+            // Add core components
+            var cameraManager = visionSystemGO.AddComponent<XREALCameraManager>();
+            var speechToText = visionSystemGO.AddComponent<XREALSpeechToText>();
+            var textToSpeech = visionSystemGO.AddComponent<XREALTextToSpeech>();
+            var ollamaConnector = visionSystemGO.AddComponent<XREALOllamaConnector>();
+            var visionSystem = visionSystemGO.AddComponent<XREALVisionSystem>();
+            var voiceCommandHandler = visionSystemGO.AddComponent<XREALVoiceCommandHandler>();
             
-            visionSystem.name = "XREALVisionSystem";
+            // Configure components
+            ConfigureOllamaConnector(ollamaConnector);
+            ConfigureSpeechToText(speechToText);
+            ConfigureTextToSpeech(textToSpeech);
+            ConfigureVisionSystem(visionSystem, cameraManager, speechToText, textToSpeech, ollamaConnector);
+            ConfigureVoiceCommandHandler(voiceCommandHandler, visionSystem, cameraManager, ollamaConnector, speechToText);
             
-            // Add core components if not present
-            EnsureComponent<CameraManager>(visionSystem);
-            EnsureComponent<SpeechToTextManager>(visionSystem);
-            EnsureComponent<TextToSpeechManager>(visionSystem);
-            EnsureComponent<OllamaClient>(visionSystem);
-            EnsureComponent<VisionLanguageManager>(visionSystem);
-            EnsureComponent<XREALVisionController>(visionSystem);
-            
-            return visionSystem;
+            Debug.Log("[XREALVisionSceneSetup] Created new vision system with all components");
+            return visionSystemGO;
         }
         
-        private void SetupVisionUI(GameObject visionSystem)
+        private void ConfigureExistingSystem(GameObject visionSystemGO)
         {
-            // Check if UI already exists
-            var existingCanvas = FindObjectOfType<Canvas>();
-            if (existingCanvas != null && existingCanvas.name.Contains("Vision"))
-            {
-                Debug.Log("[XREALVisionSceneSetup] Vision UI already exists");
-                return;
-            }
+            // Ensure all required components exist
+            var cameraManager = GetOrAddComponent<XREALCameraManager>(visionSystemGO);
+            var speechToText = GetOrAddComponent<XREALSpeechToText>(visionSystemGO);
+            var textToSpeech = GetOrAddComponent<XREALTextToSpeech>(visionSystemGO);
+            var ollamaConnector = GetOrAddComponent<XREALOllamaConnector>(visionSystemGO);
+            var visionSystem = GetOrAddComponent<XREALVisionSystem>(visionSystemGO);
+            var voiceCommandHandler = GetOrAddComponent<XREALVoiceCommandHandler>(visionSystemGO);
             
-            GameObject uiCanvas;
-            
-            if (uiCanvasPrefab != null)
-            {
-                uiCanvas = Instantiate(uiCanvasPrefab);
-            }
-            else
-            {
-                uiCanvas = CreateVisionUI();
-            }
-            
-            uiCanvas.name = "XREALVisionUI";
-            
-            // Link UI to controller
-            var controller = visionSystem.GetComponent<XREALVisionController>();
-            if (controller != null)
-            {
-                LinkUIToController(uiCanvas, controller);
-            }
+            // Configure components
+            ConfigureOllamaConnector(ollamaConnector);
+            ConfigureSpeechToText(speechToText);
+            ConfigureTextToSpeech(textToSpeech);
+            ConfigureVisionSystem(visionSystem, cameraManager, speechToText, textToSpeech, ollamaConnector);
+            ConfigureVoiceCommandHandler(voiceCommandHandler, visionSystem, cameraManager, ollamaConnector, speechToText);
         }
         
-        private GameObject CreateVisionUI()
-        {
-            // Create main canvas
-            GameObject canvasGO = new GameObject("XREALVisionCanvas");
-            Canvas canvas = canvasGO.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 100;
-            
-            canvasGO.AddComponent<CanvasScaler>();
-            canvasGO.AddComponent<GraphicRaycaster>();
-            
-            // Create status panel
-            GameObject statusPanel = CreateUIPanel(canvasGO, "StatusPanel", new Vector2(0, 1), new Vector2(0, 1), new Vector2(400, 200));
-            CreateUIText(statusPanel, "StatusText", "XREAL Vision System", 24, Color.white);
-            CreateUIText(statusPanel, "CommandText", "", 18, Color.yellow);
-            CreateUIText(statusPanel, "ResponseText", "", 16, Color.green);
-            
-            // Create control panel
-            GameObject controlPanel = CreateUIPanel(canvasGO, "ControlPanel", new Vector2(1, 0), new Vector2(1, 0), new Vector2(200, 300));
-            CreateUIButton(controlPanel, "CaptureButton", "Capture", new Vector2(0, 50));
-            CreateUIButton(controlPanel, "SettingsButton", "Settings", new Vector2(0, 0));
-            CreateUISlider(controlPanel, "ProgressSlider", new Vector2(0, -50));
-            
-            // Create settings panel (initially hidden)
-            GameObject settingsPanel = CreateUIPanel(canvasGO, "SettingsPanel", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(400, 400));
-            settingsPanel.SetActive(false);
-            
-            CreateUIDropdown(settingsPanel, "ModelDropdown", new Vector2(0, 100), new string[] { "llava:7b", "llava:13b", "moondream:latest", "llama3.2-vision:11b" });
-            CreateUIDropdown(settingsPanel, "ModeDropdown", new Vector2(0, 50), new string[] { "Image + Text", "Image Only", "Text Only" });
-            CreateUISlider(settingsPanel, "TemperatureSlider", new Vector2(0, 0));
-            CreateUIToggle(settingsPanel, "ContinuousModeToggle", "Continuous Mode", new Vector2(0, -50));
-            
-            // Create feedback indicators
-            GameObject indicatorsPanel = CreateUIPanel(canvasGO, "FeedbackIndicators", new Vector2(0.5f, 0.8f), new Vector2(0.5f, 0.8f), new Vector2(300, 100));
-            CreateUIImage(indicatorsPanel, "ListeningIndicator", Color.blue, new Vector2(-100, 0), new Vector2(80, 80));
-            CreateUIImage(indicatorsPanel, "ProcessingIndicator", Color.yellow, new Vector2(0, 0), new Vector2(80, 80));
-            CreateUIImage(indicatorsPanel, "ErrorIndicator", Color.red, new Vector2(100, 0), new Vector2(80, 80));
-            
-            // Create camera feed display
-            GameObject cameraPanel = CreateUIPanel(canvasGO, "CameraFeed", new Vector2(0, 0), new Vector2(0, 0), new Vector2(200, 150));
-            CreateUIImage(cameraPanel, "CameraFeedImage", Color.gray, Vector2.zero, new Vector2(200, 150));
-            
-            return canvasGO;
-        }
-        
-        private void ConfigureVisionComponents(GameObject visionSystem)
-        {
-            // Configure OllamaClient
-            var ollamaClient = visionSystem.GetComponent<OllamaClient>();
-            if (ollamaClient != null)
-            {
-                SetPrivateField(ollamaClient, "serverIP", defaultServerIP);
-                SetPrivateField(ollamaClient, "serverPort", defaultServerPort);
-                SetPrivateField(ollamaClient, "defaultModel", defaultModel);
-            }
-            
-            // Configure CameraManager
-            var cameraManager = visionSystem.GetComponent<CameraManager>();
-            if (cameraManager != null)
-            {
-                SetPrivateField(cameraManager, "enableContinuousCapture", true);
-                SetPrivateField(cameraManager, "captureInterval", 2.0f);
-                SetPrivateField(cameraManager, "resolutionLevel", CameraManager.ResolutionLevel.Middle);
-            }
-            
-            // Configure VisionLanguageManager
-            var visionManager = visionSystem.GetComponent<VisionLanguageManager>();
-            if (visionManager != null)
-            {
-                SetPrivateField(visionManager, "currentMode", VisionLanguageManager.VisionMode.ImageAndText);
-                SetPrivateField(visionManager, "enableVoiceActivation", true);
-                SetPrivateField(visionManager, "enableDebugLogging", true);
-            }
-        }
-        
-        private void SetupTestingControls(GameObject visionSystem)
-        {
-            // Add testing component
-            var testingControls = visionSystem.GetComponent<VisionTestingControls>();
-            if (testingControls == null)
-            {
-                testingControls = visionSystem.AddComponent<VisionTestingControls>();
-            }
-        }
-        
-        private void LinkUIToController(GameObject uiCanvas, XREALVisionController controller)
-        {
-            // Find and link UI components to controller
-            var mainCanvas = uiCanvas.GetComponent<Canvas>();
-            SetPrivateField(controller, "mainCanvas", mainCanvas);
-            
-            // Link text components
-            LinkUIComponent<TextMeshProUGUI>(uiCanvas, "StatusText", controller, "statusText");
-            LinkUIComponent<TextMeshProUGUI>(uiCanvas, "CommandText", controller, "commandText");
-            LinkUIComponent<TextMeshProUGUI>(uiCanvas, "ResponseText", controller, "responseText");
-            
-            // Link buttons
-            LinkUIComponent<Button>(uiCanvas, "CaptureButton", controller, "captureButton");
-            LinkUIComponent<Button>(uiCanvas, "SettingsButton", controller, "settingsButton");
-            
-            // Link other components
-            LinkUIComponent<Slider>(uiCanvas, "ProgressSlider", controller, "progressSlider");
-            LinkUIComponent<Dropdown>(uiCanvas, "ModelDropdown", controller, "modelDropdown");
-            LinkUIComponent<Dropdown>(uiCanvas, "ModeDropdown", controller, "modeDropdown");
-            LinkUIComponent<Toggle>(uiCanvas, "ContinuousModeToggle", controller, "continuousModeToggle");
-            
-            // Link indicators
-            var settingsPanel = FindChildByName(uiCanvas, "SettingsPanel");
-            if (settingsPanel != null)
-                SetPrivateField(controller, "settingsPanel", settingsPanel);
-            
-            var listeningIndicator = FindChildByName(uiCanvas, "ListeningIndicator");
-            if (listeningIndicator != null)
-                SetPrivateField(controller, "listeningIndicator", listeningIndicator);
-            
-            var processingIndicator = FindChildByName(uiCanvas, "ProcessingIndicator");
-            if (processingIndicator != null)
-                SetPrivateField(controller, "processingIndicator", processingIndicator);
-            
-            var errorIndicator = FindChildByName(uiCanvas, "ErrorIndicator");
-            if (errorIndicator != null)
-                SetPrivateField(controller, "errorIndicator", errorIndicator);
-        }
-        
-        // Utility methods for creating UI elements
-        private GameObject CreateUIPanel(GameObject parent, string name, Vector2 anchorMin, Vector2 anchorMax, Vector2 sizeDelta)
-        {
-            GameObject panel = new GameObject(name);
-            panel.transform.SetParent(parent.transform, false);
-            
-            RectTransform rect = panel.AddComponent<RectTransform>();
-            rect.anchorMin = anchorMin;
-            rect.anchorMax = anchorMax;
-            rect.sizeDelta = sizeDelta;
-            rect.anchoredPosition = Vector2.zero;
-            
-            return panel;
-        }
-        
-        private GameObject CreateUIText(GameObject parent, string name, string text, int fontSize, Color color)
-        {
-            GameObject textGO = new GameObject(name);
-            textGO.transform.SetParent(parent.transform, false);
-            
-            TextMeshProUGUI textComp = textGO.AddComponent<TextMeshProUGUI>();
-            textComp.text = text;
-            textComp.fontSize = fontSize;
-            textComp.color = color;
-            textComp.alignment = TextAlignmentOptions.Center;
-            
-            RectTransform rect = textGO.GetComponent<RectTransform>();
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.sizeDelta = Vector2.zero;
-            rect.anchoredPosition = Vector2.zero;
-            
-            return textGO;
-        }
-        
-        private GameObject CreateUIButton(GameObject parent, string name, string text, Vector2 position)
-        {
-            GameObject buttonGO = new GameObject(name);
-            buttonGO.transform.SetParent(parent.transform, false);
-            
-            Image image = buttonGO.AddComponent<Image>();
-            image.color = new Color(0.2f, 0.3f, 0.5f, 0.8f);
-            
-            Button button = buttonGO.AddComponent<Button>();
-            
-            RectTransform rect = buttonGO.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(150, 40);
-            rect.anchoredPosition = position;
-            
-            // Add text child
-            GameObject textGO = new GameObject("Text");
-            textGO.transform.SetParent(buttonGO.transform, false);
-            
-            TextMeshProUGUI textComp = textGO.AddComponent<TextMeshProUGUI>();
-            textComp.text = text;
-            textComp.fontSize = 16;
-            textComp.color = Color.white;
-            textComp.alignment = TextAlignmentOptions.Center;
-            
-            RectTransform textRect = textGO.GetComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.sizeDelta = Vector2.zero;
-            textRect.anchoredPosition = Vector2.zero;
-            
-            return buttonGO;
-        }
-        
-        private GameObject CreateUISlider(GameObject parent, string name, Vector2 position)
-        {
-            GameObject sliderGO = new GameObject(name);
-            sliderGO.transform.SetParent(parent.transform, false);
-            
-            Slider slider = sliderGO.AddComponent<Slider>();
-            
-            RectTransform rect = sliderGO.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(150, 20);
-            rect.anchoredPosition = position;
-            
-            return sliderGO;
-        }
-        
-        private GameObject CreateUIDropdown(GameObject parent, string name, Vector2 position, string[] options)
-        {
-            GameObject dropdownGO = new GameObject(name);
-            dropdownGO.transform.SetParent(parent.transform, false);
-            
-            Image image = dropdownGO.AddComponent<Image>();
-            image.color = new Color(0.2f, 0.2f, 0.2f, 0.8f);
-            
-            Dropdown dropdown = dropdownGO.AddComponent<Dropdown>();
-            dropdown.ClearOptions();
-            dropdown.AddOptions(new System.Collections.Generic.List<string>(options));
-            
-            RectTransform rect = dropdownGO.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(200, 30);
-            rect.anchoredPosition = position;
-            
-            return dropdownGO;
-        }
-        
-        private GameObject CreateUIToggle(GameObject parent, string name, string labelText, Vector2 position)
-        {
-            GameObject toggleGO = new GameObject(name);
-            toggleGO.transform.SetParent(parent.transform, false);
-            
-            Toggle toggle = toggleGO.AddComponent<Toggle>();
-            
-            RectTransform rect = toggleGO.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(200, 30);
-            rect.anchoredPosition = position;
-            
-            return toggleGO;
-        }
-        
-        private GameObject CreateUIImage(GameObject parent, string name, Color color, Vector2 position, Vector2 size)
-        {
-            GameObject imageGO = new GameObject(name);
-            imageGO.transform.SetParent(parent.transform, false);
-            
-            Image image = imageGO.AddComponent<Image>();
-            image.color = color;
-            
-            RectTransform rect = imageGO.GetComponent<RectTransform>();
-            rect.sizeDelta = size;
-            rect.anchoredPosition = position;
-            
-            imageGO.SetActive(false); // Hide indicators initially
-            
-            return imageGO;
-        }
-        
-        // Utility methods
-        private T EnsureComponent<T>(GameObject go) where T : Component
+        private T GetOrAddComponent<T>(GameObject go) where T : Component
         {
             T component = go.GetComponent<T>();
             if (component == null)
             {
                 component = go.AddComponent<T>();
+                Debug.Log($"[XREALVisionSceneSetup] Added missing component: {typeof(T).Name}");
             }
             return component;
         }
         
-        private void SetPrivateField(object obj, string fieldName, object value)
+        private void ConfigureOllamaConnector(XREALOllamaConnector connector)
         {
-            var field = obj.GetType().GetField(fieldName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            // Use reflection to set private fields since they might not have public setters
+            SetField(connector, "serverIP", ollamaServerIP);
+            SetField(connector, "serverPort", ollamaServerPort);
+            SetField(connector, "model", ollamaModel);
+        }
+        
+        private void ConfigureSpeechToText(XREALSpeechToText stt)
+        {
+            if (!string.IsNullOrEmpty(openAIApiKey) && openAIApiKey != "YOUR_OPENAI_API_KEY")
+            {
+                stt.SetOpenAIApiKey(openAIApiKey);
+            }
+        }
+        
+        private void ConfigureTextToSpeech(XREALTextToSpeech tts)
+        {
+            if (!string.IsNullOrEmpty(openAIApiKey) && openAIApiKey != "YOUR_OPENAI_API_KEY")
+            {
+                tts.SetOpenAIApiKey(openAIApiKey);
+            }
+        }
+        
+        private void ConfigureVisionSystem(XREALVisionSystem visionSystem, XREALCameraManager cameraManager, 
+            XREALSpeechToText speechToText, XREALTextToSpeech textToSpeech, XREALOllamaConnector ollamaConnector)
+        {
+            // Set component references using reflection
+            SetField(visionSystem, "cameraManager", cameraManager);
+            SetField(visionSystem, "speechToText", speechToText);
+            SetField(visionSystem, "textToSpeech", textToSpeech);
+            SetField(visionSystem, "ollamaConnector", ollamaConnector);
+        }
+        
+        private void ConfigureVoiceCommandHandler(XREALVoiceCommandHandler handler, XREALVisionSystem visionSystem,
+            XREALCameraManager cameraManager, XREALOllamaConnector ollamaConnector, XREALSpeechToText speechToText)
+        {
+            // Set component references using reflection
+            SetField(handler, "visionSystem", visionSystem);
+            SetField(handler, "cameraManager", cameraManager);
+            SetField(handler, "ollamaConnector", ollamaConnector);
+            SetField(handler, "speechToText", speechToText);
+        }
+        
+        private void SetField(object obj, string fieldName, object value)
+        {
+            var field = obj.GetType().GetField(fieldName, 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             if (field != null)
             {
                 field.SetValue(obj, value);
@@ -408,61 +172,142 @@ namespace CompanionIntelligence.Core
             }
         }
         
-        private void LinkUIComponent<T>(GameObject uiRoot, string componentName, object target, string fieldName) where T : Component
+        private void CreateSimpleUI()
         {
-            var component = FindChildByName(uiRoot, componentName)?.GetComponent<T>();
-            if (component != null)
+            // Check if canvas already exists
+            Canvas existingCanvas = FindObjectOfType<Canvas>();
+            if (existingCanvas != null)
             {
-                SetPrivateField(target, fieldName, component);
+                Debug.Log("[XREALVisionSceneSetup] Canvas already exists, skipping UI creation");
+                return;
             }
+            
+            // Create UI Canvas
+            GameObject canvasGO = new GameObject("XREAL Vision UI");
+            Canvas canvas = canvasGO.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 100;
+            
+            canvasGO.AddComponent<UnityEngine.UI.CanvasScaler>();
+            canvasGO.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+            
+            // Create simple status text
+            CreateStatusText(canvasGO);
+            
+            Debug.Log("[XREALVisionSceneSetup] Created simple UI canvas");
         }
         
-        private GameObject FindChildByName(GameObject parent, string name)
+        private void CreateStatusText(GameObject canvasGO)
         {
-            Transform[] transforms = parent.GetComponentsInChildren<Transform>(true);
-            foreach (Transform t in transforms)
-            {
-                if (t.name == name)
-                    return t.gameObject;
-            }
-            return null;
+            GameObject textGO = new GameObject("Status Text");
+            textGO.transform.SetParent(canvasGO.transform, false);
+            
+            var text = textGO.AddComponent<UnityEngine.UI.Text>();
+            text.text = "XREAL Vision System\nPress 'T' to test\nPress 'L' to toggle listening";
+            text.fontSize = 24;
+            text.color = Color.white;
+            text.alignment = TextAnchor.UpperLeft;
+            
+            // Set default font
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            
+            var rectTransform = textGO.GetComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0, 1);
+            rectTransform.anchorMax = new Vector2(0, 1);
+            rectTransform.pivot = new Vector2(0, 1);
+            rectTransform.anchoredPosition = new Vector2(10, -10);
+            rectTransform.sizeDelta = new Vector2(400, 100);
+        }
+        
+        private void AddDebugControls(GameObject visionSystemGO)
+        {
+            var debugControls = visionSystemGO.AddComponent<XREALVisionDebugControls>();
+            Debug.Log("[XREALVisionSceneSetup] Added debug controls");
         }
     }
     
     /// <summary>
-    /// Testing controls for the vision system
+    /// Simple debug controls for testing the vision system
     /// </summary>
-    public class VisionTestingControls : MonoBehaviour
+    public class XREALVisionDebugControls : MonoBehaviour
     {
-        [Header("Test Commands")]
-        [SerializeField] private string[] testCommands = {
-            "What do you see?",
-            "Describe this image",
-            "What colors are visible?",
-            "Tell me about this object"
-        };
-        
-        private VisionLanguageManager visionManager;
+        private XREALVoiceCommandHandler voiceHandler;
+        private XREALSpeechToText speechToText;
+        private XREALVisionSystem visionSystem;
         
         private void Start()
         {
-            visionManager = GetComponent<VisionLanguageManager>();
+            voiceHandler = GetComponent<XREALVoiceCommandHandler>();
+            speechToText = GetComponent<XREALSpeechToText>();
+            visionSystem = GetComponent<XREALVisionSystem>();
         }
         
         private void Update()
         {
-            // Test commands using number keys
-            for (int i = 0; i < testCommands.Length && i < 9; i++)
+            // Test commands
+            if (Input.GetKeyDown(KeyCode.T))
             {
-                if (Input.GetKeyDown(KeyCode.Alpha1 + i))
+                voiceHandler?.ProcessTextCommand("What do you see in this image?");
+                Debug.Log("[XREALVisionDebugControls] Triggered test command");
+            }
+            
+            if (Input.GetKeyDown(KeyCode.Alpha1))
+            {
+                voiceHandler?.ProcessTextCommand("Describe what you see");
+            }
+            
+            if (Input.GetKeyDown(KeyCode.Alpha2))
+            {
+                voiceHandler?.ProcessTextCommand("What objects can you identify?");
+            }
+            
+            if (Input.GetKeyDown(KeyCode.Alpha3))
+            {
+                voiceHandler?.ProcessTextCommand("What colors do you see?");
+            }
+            
+            // Voice controls
+            if (Input.GetKeyDown(KeyCode.L))
+            {
+                speechToText?.ToggleListening();
+                Debug.Log("[XREALVisionDebugControls] Toggled voice listening");
+            }
+            
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                speechToText?.StartListening();
+                Debug.Log("[XREALVisionDebugControls] Started listening");
+            }
+            
+            if (Input.GetKeyUp(KeyCode.Space))
+            {
+                speechToText?.StopListening();
+                Debug.Log("[XREALVisionDebugControls] Stopped listening");
+            }
+            
+            // System controls
+            if (Input.GetKeyDown(KeyCode.R))
+            {
+                // Restart system
+                if (visionSystem != null)
                 {
-                    if (visionManager != null)
-                    {
-                        visionManager.ProcessTextCommand(testCommands[i]);
-                        Debug.Log($"[VisionTestingControls] Triggered test command: {testCommands[i]}");
-                    }
+                    visionSystem.gameObject.SetActive(false);
+                    visionSystem.gameObject.SetActive(true);
+                    Debug.Log("[XREALVisionDebugControls] Restarted vision system");
                 }
             }
+        }
+        
+        private void OnGUI()
+        {
+            if (!Application.isEditor) return;
+            
+            GUI.Box(new Rect(10, Screen.height - 120, 300, 110), "XREAL Vision Debug Controls");
+            GUI.Label(new Rect(20, Screen.height - 100, 280, 20), "T - Test vision command");
+            GUI.Label(new Rect(20, Screen.height - 80, 280, 20), "1,2,3 - Quick test commands");
+            GUI.Label(new Rect(20, Screen.height - 60, 280, 20), "L - Toggle voice listening");
+            GUI.Label(new Rect(20, Screen.height - 40, 280, 20), "Space - Hold to listen");
+            GUI.Label(new Rect(20, Screen.height - 20, 280, 20), "R - Restart system");
         }
     }
 }
