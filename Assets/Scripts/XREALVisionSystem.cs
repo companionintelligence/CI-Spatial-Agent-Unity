@@ -8,6 +8,12 @@ namespace CompanionIntelligence.Core
     /// <summary>
     /// Core XREAL Vision System - Consolidated architecture for XREAL + Ollama
     /// Based on Quest ImageLLM example but adapted for XREAL devices and Ollama vision models
+    /// 
+    /// Architecture:
+    /// 1. Voice command detected via Speech-to-Text
+    /// 2. Camera captures image after brief delay
+    /// 3. Image + command sent to Ollama vision model
+    /// 4. Response converted to speech via Text-to-Speech
     /// </summary>
     public class XREALVisionSystem : MonoBehaviour
     {
@@ -23,11 +29,11 @@ namespace CompanionIntelligence.Core
         [SerializeField] private XREALOllamaConnector ollamaConnector;
         
         [Header("System Events")]
-        public UnityEvent<string> OnVoiceCommandReceived;
-        public UnityEvent<Texture2D> OnImageCaptured;
-        public UnityEvent<string> OnVisionResponse;
-        public UnityEvent<string> OnSystemError;
-        public UnityEvent OnSystemReady;
+        public UnityEvent<string> OnVoiceCommandReceived { get; private set; } = new UnityEvent<string>();
+        public UnityEvent<Texture2D> OnImageCaptured { get; private set; } = new UnityEvent<Texture2D>();
+        public UnityEvent<string> OnVisionResponse { get; private set; } = new UnityEvent<string>();
+        public UnityEvent<string> OnSystemError { get; private set; } = new UnityEvent<string>();
+        public UnityEvent OnSystemReady { get; private set; } = new UnityEvent();
         
         // System State
         private bool isInitialized = false;

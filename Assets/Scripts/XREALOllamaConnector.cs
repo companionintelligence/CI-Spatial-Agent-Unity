@@ -10,6 +10,7 @@ namespace CompanionIntelligence.Core
     /// <summary>
     /// XREAL Ollama Connector - Handles communication with Ollama vision models
     /// Consolidated and optimized for XREAL devices
+    /// Implements retry logic, connection pooling, and error recovery
     /// </summary>
     public class XREALOllamaConnector : MonoBehaviour
     {
@@ -222,101 +223,93 @@ namespace CompanionIntelligence.Core
         
         private IEnumerator AttemptVisionRequest(Texture2D image, string prompt)
         {
-            try
+            // Convert image to base64
+            string base64Image = "";
+            if (image != null)
             {
-                // Convert image to base64
-                string base64Image = "";
-                if (image != null)
+                try
                 {
-                    byte[] imageBytes = image.EncodeToJPEG(75); // Compress for faster transmission
+                    byte[] imageBytes = image.EncodeToJPG(75); // Compress for faster transmission
                     base64Image = Convert.ToBase64String(imageBytes);
                 }
-                
-                // Create request payload
-                var requestData = new OllamaRequest
+                catch (System.Exception e)
                 {
-                    model = model,
-                    prompt = CombinePrompts(systemPrompt, prompt),
-                    stream = streamResponse,
-                    options = new OllamaOptions
-                    {
-                        num_predict = maxTokens,
-                        temperature = temperature
-                    },
-                    images = !string.IsNullOrEmpty(base64Image) ? new string[] { base64Image } : new string[0]
-                };
-                
-                string jsonPayload = JsonUtility.ToJson(requestData);
-                
-                UnityWebRequest request = new UnityWebRequest($"{baseUrl}/api/generate", "POST");
-                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
-                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                request.downloadHandler = new DownloadHandlerBuffer();
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.timeout = (int)requestTimeout;
-                
-                yield return request.SendWebRequest();
-                
-                if (request.result == UnityWebRequest.Result.Success)
-                {
-                    string responseText = request.downloadHandler.text;
-                    ProcessOllamaResponse(responseText);
-                }
-                else
-                {
-                    LogError($"Request failed: {request.error}");
-                    // Don't invoke error here, let retry logic handle it
+                    LogError($"Failed to encode image: {e.Message}");
+                    yield break;
                 }
             }
-            catch (Exception e)
+            
+            // Create request payload
+            var requestData = new OllamaRequest
             {
-                LogError($"Exception during vision request: {e.Message}");
+                model = model,
+                prompt = CombinePrompts(systemPrompt, prompt),
+                stream = streamResponse,
+                options = new OllamaOptions
+                {
+                    num_predict = maxTokens,
+                    temperature = temperature
+                },
+                images = !string.IsNullOrEmpty(base64Image) ? new string[] { base64Image } : new string[0]
+            };
+            
+            string jsonPayload = JsonUtility.ToJson(requestData);
+            
+            UnityWebRequest request = new UnityWebRequest($"{baseUrl}/api/generate", "POST");
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
+            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            request.timeout = (int)requestTimeout;
+            
+            yield return request.SendWebRequest();
+            
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string responseText = request.downloadHandler.text;
+                ProcessOllamaResponse(responseText);
+            }
+            else
+            {
+                LogError($"Request failed: {request.error}");
                 // Don't invoke error here, let retry logic handle it
             }
         }
         
         private IEnumerator AttemptTextRequest(string prompt)
         {
-            try
+            // Create request payload
+            var requestData = new OllamaRequest
             {
-                // Create request payload
-                var requestData = new OllamaRequest
+                model = model,
+                prompt = CombinePrompts(systemPrompt, prompt),
+                stream = streamResponse,
+                options = new OllamaOptions
                 {
-                    model = model,
-                    prompt = CombinePrompts(systemPrompt, prompt),
-                    stream = streamResponse,
-                    options = new OllamaOptions
-                    {
-                        num_predict = maxTokens,
-                        temperature = temperature
-                    }
-                };
-                
-                string jsonPayload = JsonUtility.ToJson(requestData);
-                
-                UnityWebRequest request = new UnityWebRequest($"{baseUrl}/api/generate", "POST");
-                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
-                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                request.downloadHandler = new DownloadHandlerBuffer();
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.timeout = (int)requestTimeout;
-                
-                yield return request.SendWebRequest();
-                
-                if (request.result == UnityWebRequest.Result.Success)
-                {
-                    string responseText = request.downloadHandler.text;
-                    ProcessOllamaResponse(responseText);
+                    num_predict = maxTokens,
+                    temperature = temperature
                 }
-                else
-                {
-                    LogError($"Request failed: {request.error}");
-                    // Don't invoke error here, let retry logic handle it
-                }
+            };
+            
+            string jsonPayload = JsonUtility.ToJson(requestData);
+            
+            UnityWebRequest request = new UnityWebRequest($"{baseUrl}/api/generate", "POST");
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
+            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            request.timeout = (int)requestTimeout;
+            
+            yield return request.SendWebRequest();
+            
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string responseText = request.downloadHandler.text;
+                ProcessOllamaResponse(responseText);
             }
-            catch (Exception e)
+            else
             {
-                LogError($"Exception during text request: {e.Message}");
+                LogError($"Request failed: {request.error}");
                 // Don't invoke error here, let retry logic handle it
             }
         }
