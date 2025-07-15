@@ -11,7 +11,7 @@ namespace CompanionIntelligence.Core
     /// XREAL Speech to Text - Handles voice input and transcription
     /// Consolidated STT component optimized for XREAL devices
     /// </summary>
-    public class SpeechToText : MonoBehaviour
+    public class SpeechToText : MonoBehaviour, IXREALSpeechToText
     {
         [Header("Recording Configuration")]
         [SerializeField] private int maxRecordingLength = 10; // seconds
@@ -32,10 +32,10 @@ namespace CompanionIntelligence.Core
         [SerializeField] private bool enableDebugLogging = true;
         
         [Header("Events")]
-        public UnityEvent OnListeningStarted;
-        public UnityEvent OnListeningStopped;
-        public UnityEvent<string> OnTranscriptionComplete;
-        public UnityEvent<string> OnError;
+        public UnityEvent OnListeningStarted { get; private set; } = new UnityEvent();
+        public UnityEvent OnListeningStopped { get; private set; } = new UnityEvent();
+        public UnityEvent<string> OnTranscriptionComplete { get; private set; } = new UnityEvent<string>();
+        public UnityEvent<string> OnError { get; private set; } = new UnityEvent<string>();
         
         public enum TranscriptionService
         {

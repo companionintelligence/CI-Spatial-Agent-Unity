@@ -12,7 +12,7 @@ namespace CompanionIntelligence.Core
     /// XREAL Text to Speech - Handles audio synthesis and playback
     /// Consolidated TTS component optimized for XREAL devices
     /// </summary>
-    public class TextToSpeech : MonoBehaviour
+    public class TextToSpeech : MonoBehaviour, IXREALTextToSpeech
     {
         [Header("TTS Configuration")]
         [SerializeField] private TTSService ttsService = TTSService.OpenAI;
@@ -34,9 +34,9 @@ namespace CompanionIntelligence.Core
         [SerializeField] private float requestTimeout = 30.0f;
         
         [Header("Events")]
-        public UnityEvent OnSpeechStarted;
-        public UnityEvent OnSpeechCompleted;
-        public UnityEvent<string> OnError;
+        public UnityEvent OnSpeechStarted { get; private set; } = new UnityEvent();
+        public UnityEvent OnSpeechCompleted { get; private set; } = new UnityEvent();
+        public UnityEvent<string> OnError { get; private set; } = new UnityEvent<string>();
         
         public enum TTSService
         {
@@ -69,6 +69,7 @@ namespace CompanionIntelligence.Core
         
         public bool IsInitialized => isInitialized;
         public bool IsSpeaking => isSpeaking;
+        public bool IsPlaying => isSpeaking; // Alias for interface compatibility
         public int QueuedItems => speechQueue.Count;
         
         [Serializable]
@@ -224,6 +225,24 @@ namespace CompanionIntelligence.Core
         }
         
         /// <summary>
+        /// Set voice settings for future speech synthesis
+        /// </summary>
+        public void SetVoiceSettings(string voiceName, float speed, float pitch)
+        {
+            // Map voice name to TTSVoice enum
+            if (System.Enum.TryParse<TTSVoice>(voiceName, true, out TTSVoice newVoice))
+            {
+                voice = newVoice;
+            }
+            
+            speechSpeed = Mathf.Clamp(speed, 0.25f, 4.0f);
+            
+            // Note: OpenAI TTS doesn't support pitch adjustment directly
+            // This is kept for interface compatibility
+            LogDebug($"Voice settings updated: {voice}, Speed: {speechSpeed}");
+        }
+        
+        /// <summary>
         /// Clear the speech queue without stopping current speech
         /// </summary>
         public void ClearQueue()
@@ -255,22 +274,57 @@ namespace CompanionIntelligence.Core
             
             LogDebug($"Processing TTS request: \"{request.text}\"");
             
-            try
+            bool hasError = false;
+            string errorMessage = "";
+            
+            // Use a separate coroutine to handle the generation
+            yield return StartCoroutine(GenerateAndPlaySpeechWrapper(request, 
+                error => {
+                    hasError = true;
+                    errorMessage = error;
+                }));
+            
+            if (hasError)
             {
-                yield return StartCoroutine(GenerateAndPlaySpeech(request));
+                LogError($"TTS processing failed: {errorMessage}");
+                OnError?.Invoke($"TTS failed: {errorMessage}");
+                request.onError?.Invoke(errorMessage);
             }
-            catch (Exception e)
+            else
             {
-                LogError($"TTS processing failed: {e.Message}");
-                OnError?.Invoke($"TTS failed: {e.Message}");
-                request.onError?.Invoke(e.Message);
-            }
-            finally
-            {
-                isSpeaking = false;
-                OnSpeechCompleted?.Invoke();
                 request.onComplete?.Invoke();
             }
+            
+            isSpeaking = false;
+            OnSpeechCompleted?.Invoke();
+        }
+        
+        private IEnumerator GenerateAndPlaySpeechWrapper(TTSRequest request, System.Action<string> onError)
+        {
+            bool completed = false;
+            bool hasError = false;
+            string errorMsg = "";
+            
+            StartCoroutine(GenerateAndPlaySpeechInternal(request, 
+                () => completed = true,
+                error => {
+                    hasError = true;
+                    errorMsg = error;
+                    completed = true;
+                }));
+            
+            yield return new WaitUntil(() => completed);
+            
+            if (hasError)
+            {
+                onError?.Invoke(errorMsg);
+            }
+        }
+        
+        private IEnumerator GenerateAndPlaySpeechInternal(TTSRequest request, System.Action onSuccess, System.Action<string> onError)
+        {
+            yield return StartCoroutine(GenerateAndPlaySpeech(request));
+            onSuccess?.Invoke();
         }
         
         private IEnumerator GenerateAndPlaySpeech(TTSRequest request)
