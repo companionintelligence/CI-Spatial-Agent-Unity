@@ -9,7 +9,7 @@ namespace CompanionIntelligence.Core
     /// Simplified and consolidated from multiple camera components
     /// Implements Unity best practices for performance and memory management
     /// </summary>
-    public class CameraManager : MonoBehaviour
+    public class CameraManager : MonoBehaviour, IXREALCameraManager
     {
         [Header("Camera Configuration")]
         [SerializeField] private Camera targetCamera;
@@ -24,9 +24,9 @@ namespace CompanionIntelligence.Core
         [SerializeField] private FilterMode filterMode = FilterMode.Bilinear;
         
         [Header("Events")]
-        public UnityEvent OnCaptureStarted;
-        public UnityEvent<Texture2D> OnImageCaptured;
-        public UnityEvent<string> OnError;
+        public UnityEvent OnCaptureStarted { get; private set; } = new UnityEvent();
+        public UnityEvent<Texture2D> OnImageCaptured { get; private set; } = new UnityEvent<Texture2D>();
+        public UnityEvent<string> OnError { get; private set; } = new UnityEvent<string>();
         
         // State
         private bool isInitialized = false;
@@ -105,61 +105,44 @@ namespace CompanionIntelligence.Core
             OnCaptureStarted?.Invoke();
             LogDebug("Starting image capture...");
             
-            // Wait for end of frame to ensure camera has rendered
-            yield return new WaitForEndOfFrame();
-            
             try
             {
-                // Store original camera target texture
-                RenderTexture originalTarget = targetCamera.targetTexture;
-                
-                // Set camera to render to our capture texture
+                // Capture camera to render texture
+                RenderTexture previousTarget = targetCamera.targetTexture;
                 targetCamera.targetTexture = renderTexture;
                 targetCamera.Render();
+                targetCamera.targetTexture = previousTarget;
                 
-                // Create texture to read pixels into
+                // Copy render texture to Texture2D
+                RenderTexture.active = renderTexture;
+                
+                // Clean up previous capture
                 if (lastCapturedImage != null)
                 {
                     DestroyImmediate(lastCapturedImage);
                 }
                 
                 lastCapturedImage = new Texture2D(captureWidth, captureHeight, textureFormat, false);
-                
-                // Read pixels from render texture
-                RenderTexture.active = renderTexture;
                 lastCapturedImage.ReadPixels(new Rect(0, 0, captureWidth, captureHeight), 0, 0);
                 lastCapturedImage.Apply();
                 
-                // Optimize texture for vision processing if enabled
-                if (optimizeForVision)
-                {
-                    OptimizeTextureForVision(lastCapturedImage);
-                }
-                
-                // Restore original settings
                 RenderTexture.active = null;
-                targetCamera.targetTexture = originalTarget;
                 
                 hasCapturedImage = true;
-                LogDebug("Image captured successfully");
+                LogDebug("Image capture completed successfully");
                 OnImageCaptured?.Invoke(lastCapturedImage);
             }
             catch (System.Exception e)
             {
                 LogError($"Failed to capture image: {e.Message}");
-                OnError?.Invoke($"Image capture failed: {e.Message}");
+                OnError?.Invoke($"Capture failed: {e.Message}");
             }
-        }
-        
-        private void OptimizeTextureForVision(Texture2D texture)
-        {
-            // Apply any vision-specific optimizations here
-            // For example, you might want to adjust contrast, brightness, etc.
-            LogDebug("Applying vision optimizations to captured image");
+            
+            yield return null;
         }
         
         /// <summary>
-        /// Get the last captured image
+        /// Get the last captured image (reference, not copy)
         /// </summary>
         public Texture2D GetLastCapturedImage()
         {
@@ -167,7 +150,7 @@ namespace CompanionIntelligence.Core
         }
         
         /// <summary>
-        /// Get a copy of the last captured image
+        /// Get a copy of the last captured image (caller is responsible for cleanup)
         /// </summary>
         public Texture2D GetLastCapturedImageCopy()
         {
@@ -180,11 +163,17 @@ namespace CompanionIntelligence.Core
         }
         
         /// <summary>
-        /// Clear the captured image flag
+        /// Clear captured image data
         /// </summary>
         public void ClearCapturedImage()
         {
+            if (lastCapturedImage != null)
+            {
+                DestroyImmediate(lastCapturedImage);
+                lastCapturedImage = null;
+            }
             hasCapturedImage = false;
+            LogDebug("Captured image cleared");
         }
         
         /// <summary>

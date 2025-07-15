@@ -15,7 +15,7 @@ namespace CompanionIntelligence.Core
     /// 3. Image + command sent to Ollama vision model
     /// 4. Response converted to speech via Text-to-Speech
     /// </summary>
-    public class VisionSystem : MonoBehaviour
+    public class VisionSystem : MonoBehaviour, IXREALVisionSystem
     {
         [Header("System Configuration")]
         [SerializeField] private bool autoInitialize = true;

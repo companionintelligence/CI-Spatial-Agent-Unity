@@ -12,7 +12,7 @@ namespace CompanionIntelligence.Core
     /// Consolidated and optimized for XREAL devices
     /// Implements retry logic, connection pooling, and error recovery
     /// </summary>
-    public class OllamaConnector : MonoBehaviour
+    public class OllamaConnector : MonoBehaviour, IXREALOllamaConnector
     {
         [Header("Server Configuration")]
         [SerializeField] private string serverIP = "192.168.1.100";
@@ -32,9 +32,9 @@ namespace CompanionIntelligence.Core
         [SerializeField] private bool enableDebugLogging = true;
         
         [Header("Events")]
-        public UnityEvent OnProcessingStarted;
-        public UnityEvent<string> OnResponseReceived;
-        public UnityEvent<string> OnError;
+        public UnityEvent OnProcessingStarted { get; private set; } = new UnityEvent();
+        public UnityEvent<string> OnResponseReceived { get; private set; } = new UnityEvent<string>();
+        public UnityEvent<string> OnError { get; private set; } = new UnityEvent<string>();
         
         // Connection state
         private bool isInitialized = false;
