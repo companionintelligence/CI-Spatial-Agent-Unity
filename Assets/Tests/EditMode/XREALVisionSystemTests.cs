@@ -13,13 +13,13 @@ namespace CompanionIntelligence.Tests
     public class XREALVisionSystemTests
     {
         private GameObject testGameObject;
-        private XREALVisionSystem visionSystem;
+        private VisionSystem visionSystem;
 
         [SetUp]
         public void Setup()
         {
             testGameObject = new GameObject("TestVisionSystem");
-            visionSystem = testGameObject.AddComponent<XREALVisionSystem>();
+            visionSystem = testGameObject.AddComponent<VisionSystem>();
         }
 
         [TearDown]
@@ -35,7 +35,7 @@ namespace CompanionIntelligence.Tests
         public void VisionSystem_InitialState_IsIdle()
         {
             // Test that the system starts in Idle state
-            Assert.AreEqual(XREALVisionSystem.SystemState.Idle, visionSystem.CurrentState);
+            Assert.AreEqual(VisionSystem.SystemState.Idle, visionSystem.CurrentState);
             Assert.IsFalse(visionSystem.IsInitialized);
             Assert.IsFalse(visionSystem.IsProcessing);
         }
@@ -44,7 +44,7 @@ namespace CompanionIntelligence.Tests
         public IEnumerator VisionSystem_AutoInitialize_InitializesCorrectly()
         {
             // Enable auto-initialize and wait for initialization
-            var autoInitializeField = typeof(XREALVisionSystem).GetField("autoInitialize", 
+            var autoInitializeField = typeof(VisionSystem).GetField("autoInitialize", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             autoInitializeField?.SetValue(visionSystem, true);
 
@@ -65,7 +65,7 @@ namespace CompanionIntelligence.Tests
 
             // Verify initialization completed or timed out gracefully
             // Note: May not initialize fully without required components, but should handle gracefully
-            Assert.IsTrue(elapsed < timeout || visionSystem.CurrentState != XREALVisionSystem.SystemState.Error);
+            Assert.IsTrue(elapsed < timeout || visionSystem.CurrentState != VisionSystem.SystemState.Error);
         }
 
         [Test]
@@ -75,7 +75,7 @@ namespace CompanionIntelligence.Tests
             visionSystem.ProcessTextCommand("What do you see?");
             
             // Should remain in idle state and not crash
-            Assert.AreEqual(XREALVisionSystem.SystemState.Idle, visionSystem.CurrentState);
+            Assert.AreEqual(VisionSystem.SystemState.Idle, visionSystem.CurrentState);
             Assert.IsFalse(visionSystem.IsProcessing);
         }
 
@@ -83,11 +83,11 @@ namespace CompanionIntelligence.Tests
         public void VisionSystem_StateTransitions_AreValid()
         {
             // Test valid state transitions
-            var states = System.Enum.GetValues(typeof(XREALVisionSystem.SystemState));
-            foreach (XREALVisionSystem.SystemState state in states)
+            var states = System.Enum.GetValues(typeof(VisionSystem.SystemState));
+            foreach (VisionSystem.SystemState state in states)
             {
                 // Verify all states are defined and accessible
-                Assert.IsTrue(System.Enum.IsDefined(typeof(XREALVisionSystem.SystemState), state));
+                Assert.IsTrue(System.Enum.IsDefined(typeof(VisionSystem.SystemState), state));
             }
         }
 

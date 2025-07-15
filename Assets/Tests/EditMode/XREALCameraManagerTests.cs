@@ -13,13 +13,13 @@ namespace CompanionIntelligence.Tests
     public class XREALCameraManagerTests
     {
         private GameObject testGameObject;
-        private XREALCameraManager cameraManager;
+        private CameraManager cameraManager;
 
         [SetUp]
         public void Setup()
         {
             testGameObject = new GameObject("TestCameraManager");
-            cameraManager = testGameObject.AddComponent<XREALCameraManager>();
+            cameraManager = testGameObject.AddComponent<CameraManager>();
         }
 
         [TearDown]

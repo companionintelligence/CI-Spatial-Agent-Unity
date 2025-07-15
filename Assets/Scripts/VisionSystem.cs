@@ -15,7 +15,7 @@ namespace CompanionIntelligence.Core
     /// 3. Image + command sent to Ollama vision model
     /// 4. Response converted to speech via Text-to-Speech
     /// </summary>
-    public class XREALVisionSystem : MonoBehaviour
+    public class VisionSystem : MonoBehaviour
     {
         [Header("System Configuration")]
         [SerializeField] private bool autoInitialize = true;
@@ -23,10 +23,10 @@ namespace CompanionIntelligence.Core
         [SerializeField] private float captureDelay = 1.0f;
         
         [Header("Component References")]
-        [SerializeField] private XREALCameraManager cameraManager;
-        [SerializeField] private XREALSpeechToText speechToText;
-        [SerializeField] private XREALTextToSpeech textToSpeech;
-        [SerializeField] private XREALOllamaConnector ollamaConnector;
+        [SerializeField] private CameraManager cameraManager;
+        [SerializeField] private SpeechToText speechToText;
+        [SerializeField] private TextToSpeech textToSpeech;
+        [SerializeField] private OllamaConnector ollamaConnector;
         
         [Header("System Events")]
         public UnityEvent<string> OnVoiceCommandReceived { get; private set; } = new UnityEvent<string>();
@@ -69,13 +69,13 @@ namespace CompanionIntelligence.Core
             
             // Auto-find components if not assigned
             if (cameraManager == null)
-                cameraManager = GetComponentInChildren<XREALCameraManager>();
+                cameraManager = GetComponentInChildren<CameraManager>();
             if (speechToText == null)
-                speechToText = GetComponentInChildren<XREALSpeechToText>();
+                speechToText = GetComponentInChildren<SpeechToText>();
             if (textToSpeech == null)
-                textToSpeech = GetComponentInChildren<XREALTextToSpeech>();
+                textToSpeech = GetComponentInChildren<TextToSpeech>();
             if (ollamaConnector == null)
-                ollamaConnector = GetComponentInChildren<XREALOllamaConnector>();
+                ollamaConnector = GetComponentInChildren<OllamaConnector>();
             
             // Initialize components in order
             yield return InitializeComponent(cameraManager, "Camera Manager");

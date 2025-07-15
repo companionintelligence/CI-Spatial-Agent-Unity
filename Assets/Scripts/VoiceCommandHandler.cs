@@ -7,13 +7,13 @@ namespace CompanionIntelligence.Core
     /// XREAL Voice Command Handler - Manages the voice interaction flow
     /// Based on Quest ImageLLM VoiceCommandHandler but adapted for XREAL + Ollama
     /// </summary>
-    public class XREALVoiceCommandHandler : MonoBehaviour
+    public class VoiceCommandHandler : MonoBehaviour
     {
         [Header("System References")]
-        [SerializeField] private XREALVisionSystem visionSystem;
-        [SerializeField] private XREALCameraManager cameraManager;
-        [SerializeField] private XREALOllamaConnector ollamaConnector;
-        [SerializeField] private XREALSpeechToText speechToText;
+        [SerializeField] private VisionSystem visionSystem;
+        [SerializeField] private CameraManager cameraManager;
+        [SerializeField] private OllamaConnector ollamaConnector;
+        [SerializeField] private SpeechToText speechToText;
         
         [Header("Interaction Settings")]
         [SerializeField] private bool autoStartListening = true;
@@ -44,13 +44,13 @@ namespace CompanionIntelligence.Core
             
             // Auto-find components if not assigned
             if (visionSystem == null)
-                visionSystem = FindObjectOfType<XREALVisionSystem>();
+                visionSystem = FindObjectOfType<VisionSystem>();
             if (cameraManager == null)
-                cameraManager = FindObjectOfType<XREALCameraManager>();
+                cameraManager = FindObjectOfType<CameraManager>();
             if (ollamaConnector == null)
-                ollamaConnector = FindObjectOfType<XREALOllamaConnector>();
+                ollamaConnector = FindObjectOfType<OllamaConnector>();
             if (speechToText == null)
-                speechToText = FindObjectOfType<XREALSpeechToText>();
+                speechToText = FindObjectOfType<SpeechToText>();
             
             // Wait for components to initialize
             yield return new WaitUntil(() => 

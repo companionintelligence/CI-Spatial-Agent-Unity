@@ -12,10 +12,10 @@ namespace CompanionIntelligence.Tests
     /// Performance tests for XREAL Vision System
     /// Validates memory usage, processing times, and resource management
     /// </summary>
-    public class XREALVisionSystemPerformanceImprovedTests
+    public class VisionSystemPerformanceImprovedTests
     {
         private GameObject visionSystemGO;
-        private XREALVisionSystem visionSystem;
+        private VisionSystem visionSystem;
         private const int PERFORMANCE_ITERATIONS = 10;
         private const float MAX_FRAME_TIME_MS = 16.67f; // 60 FPS target
         private const long MAX_MEMORY_ALLOCATION_MB = 50;
@@ -23,8 +23,8 @@ namespace CompanionIntelligence.Tests
         [SetUp]
         public void Setup()
         {
-            visionSystemGO = XREALTestUtilities.CreateTestVisionSystem();
-            visionSystem = visionSystemGO.GetComponent<XREALVisionSystem>();
+            visionSystemGO = TestUtilities.CreateTestVisionSystem();
+            visionSystem = visionSystemGO.GetComponent<VisionSystem>();
         }
 
         [TearDown]
@@ -41,11 +41,11 @@ namespace CompanionIntelligence.Tests
         [UnityTest]
         public IEnumerator Performance_CameraCapture_MeetsFrameTimeRequirements()
         {
-            var camera = XREALTestUtilities.CreateTestCamera();
-            var cameraManager = visionSystemGO.GetComponent<XREALCameraManager>();
+            var camera = TestUtilities.CreateTestCamera();
+            var cameraManager = visionSystemGO.GetComponent<CameraManager>();
             
             // Set camera reference
-            var cameraField = typeof(XREALCameraManager).GetField("targetCamera", 
+            var cameraField = typeof(CameraManager).GetField("targetCamera", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             cameraField?.SetValue(cameraManager, camera);
             
@@ -63,7 +63,7 @@ namespace CompanionIntelligence.Tests
                 
                 cameraManager.CaptureImage();
                 
-                yield return XREALTestUtilities.WaitForCondition(() => captureComplete, 2f);
+                yield return TestUtilities.WaitForCondition(() => captureComplete, 2f);
                 
                 stopwatch.Stop();
                 captureTimes[i] = (float)stopwatch.Elapsed.TotalMilliseconds;
@@ -96,7 +96,7 @@ namespace CompanionIntelligence.Tests
         [Test]
         public void Performance_MemoryUsage_TextureManagement_IsEfficient()
         {
-            var cameraManager = visionSystemGO.GetComponent<XREALCameraManager>();
+            var cameraManager = visionSystemGO.GetComponent<CameraManager>();
             cameraManager.Initialize();
             
             // Measure initial memory
@@ -108,7 +108,7 @@ namespace CompanionIntelligence.Tests
             Profiler.BeginSample("Texture Creation Loop");
             for (int i = 0; i < 100; i++)
             {
-                var texture = XREALTestUtilities.CreateTestTexture(512, 512);
+                var texture = TestUtilities.CreateTestTexture(512, 512);
                 var copy = cameraManager.GetLastCapturedImageCopy();
                 
                 Object.DestroyImmediate(texture);
@@ -136,10 +136,10 @@ namespace CompanionIntelligence.Tests
         {
             var textures = new Texture2D[]
             {
-                XREALTestUtilities.CreateTestTexture(256, 256),
-                XREALTestUtilities.CreateTestTexture(512, 512),
-                XREALTestUtilities.CreateTestTexture(1024, 1024),
-                XREALTestUtilities.CreateTestTextureWithPattern(512, 512)
+                TestUtilities.CreateTestTexture(256, 256),
+                TestUtilities.CreateTestTexture(512, 512),
+                TestUtilities.CreateTestTexture(1024, 1024),
+                TestUtilities.CreateTestTextureWithPattern(512, 512)
             };
             
             var stopwatch = new Stopwatch();
@@ -176,14 +176,14 @@ namespace CompanionIntelligence.Tests
         public void Performance_VisionSystem_StateChanges_AreEfficient()
         {
             var stopwatch = new Stopwatch();
-            var states = new XREALVisionSystem.SystemState[]
+            var states = new VisionSystem.SystemState[]
             {
-                XREALVisionSystem.SystemState.Idle,
-                XREALVisionSystem.SystemState.Listening,
-                XREALVisionSystem.SystemState.Capturing,
-                XREALVisionSystem.SystemState.Processing,
-                XREALVisionSystem.SystemState.Speaking,
-                XREALVisionSystem.SystemState.Error
+                VisionSystem.SystemState.Idle,
+                VisionSystem.SystemState.Listening,
+                VisionSystem.SystemState.Capturing,
+                VisionSystem.SystemState.Processing,
+                VisionSystem.SystemState.Speaking,
+                VisionSystem.SystemState.Error
             };
             
             stopwatch.Start();
@@ -207,8 +207,8 @@ namespace CompanionIntelligence.Tests
         [UnityTest]
         public IEnumerator Performance_ConcurrentOperations_HandledCorrectly()
         {
-            var mockCamera = visionSystemGO.AddComponent<XREALTestUtilities.MockCameraManager>();
-            var mockOllama = visionSystemGO.AddComponent<XREALTestUtilities.MockOllamaConnector>();
+            var mockCamera = visionSystemGO.AddComponent<TestUtilities.MockCameraManager>();
+            var mockOllama = visionSystemGO.AddComponent<TestUtilities.MockOllamaConnector>();
             
             // Set very fast response times for stress testing
             mockOllama.ResponseDelay = 0.01f;
@@ -216,9 +216,9 @@ namespace CompanionIntelligence.Tests
             mockCamera.Initialize();
             mockOllama.Initialize();
             
-            var cameraField = typeof(XREALVisionSystem).GetField("cameraManager", 
+            var cameraField = typeof(VisionSystem).GetField("cameraManager", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var ollamaField = typeof(XREALVisionSystem).GetField("ollamaConnector", 
+            var ollamaField = typeof(VisionSystem).GetField("ollamaConnector", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             
             cameraField?.SetValue(visionSystem, mockCamera);
@@ -241,7 +241,7 @@ namespace CompanionIntelligence.Tests
             }
             
             // Wait for operations to complete
-            yield return XREALTestUtilities.WaitForCondition(() => completedOperations >= 1, 5f);
+            yield return TestUtilities.WaitForCondition(() => completedOperations >= 1, 5f);
             
             stopwatch.Stop();
             var totalTime = (float)stopwatch.Elapsed.TotalMilliseconds;

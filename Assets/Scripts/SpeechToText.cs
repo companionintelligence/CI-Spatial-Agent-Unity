@@ -11,7 +11,7 @@ namespace CompanionIntelligence.Core
     /// XREAL Speech to Text - Handles voice input and transcription
     /// Consolidated STT component optimized for XREAL devices
     /// </summary>
-    public class XREALSpeechToText : MonoBehaviour
+    public class SpeechToText : MonoBehaviour
     {
         [Header("Recording Configuration")]
         [SerializeField] private int maxRecordingLength = 10; // seconds

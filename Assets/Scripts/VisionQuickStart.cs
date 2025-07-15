@@ -19,7 +19,7 @@ namespace CompanionIntelligence.Core
         [SerializeField] private KeyCode testKey = KeyCode.T;
         [SerializeField] private KeyCode toggleListeningKey = KeyCode.L;
         
-        private XREALVisionSystem visionSystem;
+        private VisionSystem visionSystem;
         private bool systemReady = false;
         
         private void Start()
@@ -42,7 +42,7 @@ namespace CompanionIntelligence.Core
             var sceneSetup = FindFirstObjectByType<XREALVisionSceneSetup>();
             if (sceneSetup != null)
             {
-                sceneSetup.SetupXREALVisionScene();
+                sceneSetup.SetupVisionScene();
             }
             else
             {
@@ -58,19 +58,19 @@ namespace CompanionIntelligence.Core
             Debug.Log("[XREALVisionQuickStart] Creating manual setup...");
             
             var visionSystemGO = new GameObject("XREAL Vision System");
-            visionSystemGO.AddComponent<XREALVisionSystem>();
-            visionSystemGO.AddComponent<XREALCameraManager>();
-            visionSystemGO.AddComponent<XREALOllamaConnector>();
-            visionSystemGO.AddComponent<XREALSpeechToText>();
-            visionSystemGO.AddComponent<XREALTextToSpeech>();
-            visionSystemGO.AddComponent<XREALVoiceCommandHandler>();
+            visionSystemGO.AddComponent<VisionSystem>();
+            visionSystemGO.AddComponent<CameraManager>();
+            visionSystemGO.AddComponent<OllamaConnector>();
+            visionSystemGO.AddComponent<SpeechToText>();
+            visionSystemGO.AddComponent<TextToSpeech>();
+            visionSystemGO.AddComponent<VoiceCommandHandler>();
             
             Debug.Log("[XREALVisionQuickStart] Manual setup complete");
         }
         
         private void FindExistingSystem()
         {
-            visionSystem = FindFirstObjectByType<XREALVisionSystem>();
+            visionSystem = FindFirstObjectByType<VisionSystem>();
             
             if (visionSystem != null)
             {

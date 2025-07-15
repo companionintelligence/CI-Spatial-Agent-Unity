@@ -11,7 +11,7 @@ namespace CompanionIntelligence.Core
     {
         bool IsInitialized { get; }
         bool IsProcessing { get; }
-        XREALVisionSystem.SystemState CurrentState { get; }
+        VisionSystem.SystemState CurrentState { get; }
         
         UnityEvent<string> OnVoiceCommandReceived { get; }
         UnityEvent<Texture2D> OnImageCaptured { get; }

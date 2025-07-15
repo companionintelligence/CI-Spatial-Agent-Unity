@@ -17,7 +17,7 @@ namespace CompanionIntelligence.Core
         [SerializeField] private bool showPerformanceStats = true;
         [SerializeField] private float statsUpdateInterval = 1f;
         
-        private XREALVisionSystem visionSystem;
+        private VisionSystem visionSystem;
         private float lastStatsUpdate;
         private int commandsProcessed = 0;
         private float totalProcessingTime = 0f;
@@ -30,7 +30,7 @@ namespace CompanionIntelligence.Core
         private void InitializeVisionSystem()
         {
             // Find or create the vision system
-            visionSystem = FindFirstObjectByType<XREALVisionSystem>();
+            visionSystem = FindFirstObjectByType<VisionSystem>();
             
             if (visionSystem == null)
             {
@@ -191,7 +191,7 @@ namespace CompanionIntelligence.Core
         {
             if (visionSystem != null && visionSystem.IsInitialized)
             {
-                Debug.Log("[XREALVisionExample] Attempting to recover from error");
+                Debug.Log("[VisionExample] Attempting to recover from error");
                 visionSystem.StartListening();
             }
         }

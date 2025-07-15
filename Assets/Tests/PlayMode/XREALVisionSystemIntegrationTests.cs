@@ -13,7 +13,7 @@ namespace CompanionIntelligence.Tests
     public class XREALVisionSystemIntegrationTests
     {
         private GameObject visionSystemGameObject;
-        private XREALVisionSystem visionSystem;
+        private VisionSystem visionSystem;
         private XREALVisionSceneSetup sceneSetup;
 
         [SetUp]
@@ -36,17 +36,17 @@ namespace CompanionIntelligence.Tests
         public IEnumerator VisionSystem_CompleteSetup_CreatesAllComponents()
         {
             // Test the complete scene setup process
-            sceneSetup.SetupXREALVisionScene();
+            sceneSetup.SetupVisionScene();
             
             yield return new WaitForSeconds(0.5f);
 
             // Check that all core components were created
-            visionSystem = Object.FindObjectOfType<XREALVisionSystem>();
-            var cameraManager = Object.FindObjectOfType<XREALCameraManager>();
-            var ollamaConnector = Object.FindObjectOfType<XREALOllamaConnector>();
-            var speechToText = Object.FindObjectOfType<XREALSpeechToText>();
-            var textToSpeech = Object.FindObjectOfType<XREALTextToSpeech>();
-            var voiceCommandHandler = Object.FindObjectOfType<XREALVoiceCommandHandler>();
+            visionSystem = Object.FindObjectOfType<VisionSystem>();
+            var cameraManager = Object.FindObjectOfType<CameraManager>();
+            var ollamaConnector = Object.FindObjectOfType<OllamaConnector>();
+            var speechToText = Object.FindObjectOfType<SpeechToText>();
+            var textToSpeech = Object.FindObjectOfType<TextToSpeech>();
+            var voiceCommandHandler = Object.FindObjectOfType<VoiceCommandHandler>();
 
             Assert.IsNotNull(visionSystem, "VisionSystem should be created");
             Assert.IsNotNull(cameraManager, "CameraManager should be created");
@@ -60,10 +60,10 @@ namespace CompanionIntelligence.Tests
         public IEnumerator VisionSystem_EventFlow_WorksCorrectly()
         {
             // Setup complete system
-            sceneSetup.SetupXREALVisionScene();
+            sceneSetup.SetupVisionScene();
             yield return new WaitForSeconds(0.5f);
 
-            visionSystem = Object.FindObjectOfType<XREALVisionSystem>();
+            visionSystem = Object.FindObjectOfType<VisionSystem>();
             Assert.IsNotNull(visionSystem);
 
             bool systemReadyFired = false;
@@ -83,10 +83,10 @@ namespace CompanionIntelligence.Tests
         public IEnumerator VisionSystem_VoiceToVisionPipeline_HandlesTestInput()
         {
             // Setup complete system
-            sceneSetup.SetupXREALVisionScene();
+            sceneSetup.SetupVisionScene();
             yield return new WaitForSeconds(0.5f);
 
-            visionSystem = Object.FindObjectOfType<XREALVisionSystem>();
+            visionSystem = Object.FindObjectOfType<VisionSystem>();
             Assert.IsNotNull(visionSystem);
 
             bool commandReceived = false;
@@ -107,7 +107,7 @@ namespace CompanionIntelligence.Tests
         public void VisionSystem_ComponentReferences_AreSetCorrectly()
         {
             // Test that scene setup correctly wires component references
-            sceneSetup.SetupXREALVisionScene();
+            sceneSetup.SetupVisionScene();
 
             var allComponents = Object.FindObjectsOfType<MonoBehaviour>();
             var visionComponents = System.Array.FindAll(allComponents, 
@@ -120,10 +120,10 @@ namespace CompanionIntelligence.Tests
         public IEnumerator VisionSystem_ErrorRecovery_WorksCorrectly()
         {
             // Setup system and test error recovery
-            sceneSetup.SetupXREALVisionScene();
+            sceneSetup.SetupVisionScene();
             yield return new WaitForSeconds(0.5f);
 
-            visionSystem = Object.FindObjectOfType<XREALVisionSystem>();
+            visionSystem = Object.FindObjectOfType<VisionSystem>();
             
             if (visionSystem != null)
             {
@@ -142,22 +142,22 @@ namespace CompanionIntelligence.Tests
         public void VisionSystem_DebugControls_AreCreated()
         {
             // Test that debug controls are properly created
-            sceneSetup.SetupXREALVisionScene();
+            sceneSetup.SetupVisionScene();
 
             var debugControls = Object.FindObjectOfType<XREALVisionDebugControls>();
             // Debug controls might not be created in all configurations
             // This test verifies the setup process doesn't throw errors
-            Assert.DoesNotThrow(() => sceneSetup.SetupXREALVisionScene());
+            Assert.DoesNotThrow(() => sceneSetup.SetupVisionScene());
         }
 
         [UnityTest]
         public IEnumerator VisionSystem_StateTransitions_AreValid()
         {
             // Test state transitions through the complete pipeline
-            sceneSetup.SetupXREALVisionScene();
+            sceneSetup.SetupVisionScene();
             yield return new WaitForSeconds(0.5f);
 
-            visionSystem = Object.FindObjectOfType<XREALVisionSystem>();
+            visionSystem = Object.FindObjectOfType<VisionSystem>();
             
             if (visionSystem != null)
             {
@@ -168,7 +168,7 @@ namespace CompanionIntelligence.Tests
                 yield return new WaitForSeconds(0.1f);
                 
                 // State should change or remain valid
-                Assert.IsTrue(System.Enum.IsDefined(typeof(XREALVisionSystem.SystemState), visionSystem.CurrentState));
+                Assert.IsTrue(System.Enum.IsDefined(typeof(VisionSystem.SystemState), visionSystem.CurrentState));
             }
         }
     }

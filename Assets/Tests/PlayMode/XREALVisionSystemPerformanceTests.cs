@@ -36,7 +36,7 @@ namespace CompanionIntelligence.Tests
             var startTime = Time.realtimeSinceStartup;
             
             var sceneSetup = testGameObject.AddComponent<XREALVisionSceneSetup>();
-            sceneSetup.SetupXREALVisionScene();
+            sceneSetup.SetupVisionScene();
             
             yield return new WaitForSeconds(2f); // Allow for initialization
             
@@ -58,9 +58,9 @@ namespace CompanionIntelligence.Tests
             for (int i = 0; i < 5; i++)
             {
                 gameObjects[i] = new GameObject($"VisionSystem_{i}");
-                gameObjects[i].AddComponent<XREALVisionSystem>();
-                gameObjects[i].AddComponent<XREALCameraManager>();
-                gameObjects[i].AddComponent<XREALOllamaConnector>();
+                gameObjects[i].AddComponent<VisionSystem>();
+                gameObjects[i].AddComponent<CameraManager>();
+                gameObjects[i].AddComponent<OllamaConnector>();
             }
             
             var afterCreationMemory = System.GC.GetTotalMemory(true);
@@ -85,11 +85,11 @@ namespace CompanionIntelligence.Tests
         public IEnumerator VisionSystem_MultipleCommands_HandlesConcurrency()
         {
             var sceneSetup = testGameObject.AddComponent<XREALVisionSceneSetup>();
-            sceneSetup.SetupXREALVisionScene();
+            sceneSetup.SetupVisionScene();
             
             yield return new WaitForSeconds(1f);
             
-            var visionSystem = Object.FindObjectOfType<XREALVisionSystem>();
+            var visionSystem = Object.FindObjectOfType<VisionSystem>();
             if (visionSystem != null)
             {
                 var startTime = Time.realtimeSinceStartup;
@@ -114,7 +114,7 @@ namespace CompanionIntelligence.Tests
         [Performance]
         public void CameraManager_ImageProcessing_IsEfficient()
         {
-            var cameraManager = testGameObject.AddComponent<XREALCameraManager>();
+            var cameraManager = testGameObject.AddComponent<CameraManager>();
             cameraManager.Initialize();
             
             var startTime = Time.realtimeSinceStartup;
@@ -137,7 +137,7 @@ namespace CompanionIntelligence.Tests
         [Performance]
         public IEnumerator OllamaConnector_RequestHandling_IsResponsive()
         {
-            var ollamaConnector = testGameObject.AddComponent<XREALOllamaConnector>();
+            var ollamaConnector = testGameObject.AddComponent<OllamaConnector>();
             ollamaConnector.Initialize();
             
             yield return new WaitForSeconds(0.5f);
@@ -171,7 +171,7 @@ namespace CompanionIntelligence.Tests
             // Multiple setups to test component finding performance
             for (int i = 0; i < 10; i++)
             {
-                sceneSetup.SetupXREALVisionScene();
+                sceneSetup.SetupVisionScene();
             }
             
             var endTime = Time.realtimeSinceStartup;

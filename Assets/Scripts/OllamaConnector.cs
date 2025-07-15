@@ -12,7 +12,7 @@ namespace CompanionIntelligence.Core
     /// Consolidated and optimized for XREAL devices
     /// Implements retry logic, connection pooling, and error recovery
     /// </summary>
-    public class XREALOllamaConnector : MonoBehaviour
+    public class OllamaConnector : MonoBehaviour
     {
         [Header("Server Configuration")]
         [SerializeField] private string serverIP = "192.168.1.100";
