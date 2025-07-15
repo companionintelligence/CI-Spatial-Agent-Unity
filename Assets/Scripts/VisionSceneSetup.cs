@@ -25,12 +25,12 @@ namespace CompanionIntelligence.Core
         {
             if (setupOnAwake)
             {
-                SetupXREALVisionScene();
+                SetupVisionScene();
             }
         }
         
         [ContextMenu("Setup XREAL Vision Scene")]
-        public void SetupXREALVisionScene()
+        public void SetupVisionScene()
         {
             Debug.Log("[XREALVisionSceneSetup] Setting up XREAL Vision Scene...");
             
@@ -55,7 +55,7 @@ namespace CompanionIntelligence.Core
         private GameObject CreateVisionSystemGameObject()
         {
             // Check if vision system already exists
-            XREALVisionSystem existingSystem = FindObjectOfType<XREALVisionSystem>();
+            VisionSystem existingSystem = FindObjectOfType<VisionSystem>();
             if (existingSystem != null)
             {
                 Debug.Log("[XREALVisionSceneSetup] Vision system already exists, configuring existing system");
@@ -67,12 +67,12 @@ namespace CompanionIntelligence.Core
             GameObject visionSystemGO = new GameObject("XREAL Vision System");
             
             // Add core components
-            var cameraManager = visionSystemGO.AddComponent<XREALCameraManager>();
-            var speechToText = visionSystemGO.AddComponent<XREALSpeechToText>();
-            var textToSpeech = visionSystemGO.AddComponent<XREALTextToSpeech>();
-            var ollamaConnector = visionSystemGO.AddComponent<XREALOllamaConnector>();
-            var visionSystem = visionSystemGO.AddComponent<XREALVisionSystem>();
-            var voiceCommandHandler = visionSystemGO.AddComponent<XREALVoiceCommandHandler>();
+            var cameraManager = visionSystemGO.AddComponent<CameraManager>();
+            var speechToText = visionSystemGO.AddComponent<SpeechToText>();
+            var textToSpeech = visionSystemGO.AddComponent<TextToSpeech>();
+            var ollamaConnector = visionSystemGO.AddComponent<OllamaConnector>();
+            var visionSystem = visionSystemGO.AddComponent<VisionSystem>();
+            var voiceCommandHandler = visionSystemGO.AddComponent<VoiceCommandHandler>();
             
             // Configure components
             ConfigureOllamaConnector(ollamaConnector);
@@ -88,12 +88,12 @@ namespace CompanionIntelligence.Core
         private void ConfigureExistingSystem(GameObject visionSystemGO)
         {
             // Ensure all required components exist
-            var cameraManager = GetOrAddComponent<XREALCameraManager>(visionSystemGO);
-            var speechToText = GetOrAddComponent<XREALSpeechToText>(visionSystemGO);
-            var textToSpeech = GetOrAddComponent<XREALTextToSpeech>(visionSystemGO);
-            var ollamaConnector = GetOrAddComponent<XREALOllamaConnector>(visionSystemGO);
-            var visionSystem = GetOrAddComponent<XREALVisionSystem>(visionSystemGO);
-            var voiceCommandHandler = GetOrAddComponent<XREALVoiceCommandHandler>(visionSystemGO);
+            var cameraManager = GetOrAddComponent<CameraManager>(visionSystemGO);
+            var speechToText = GetOrAddComponent<SpeechToText>(visionSystemGO);
+            var textToSpeech = GetOrAddComponent<TextToSpeech>(visionSystemGO);
+            var ollamaConnector = GetOrAddComponent<OllamaConnector>(visionSystemGO);
+            var visionSystem = GetOrAddComponent<VisionSystem>(visionSystemGO);
+            var voiceCommandHandler = GetOrAddComponent<VoiceCommandHandler>(visionSystemGO);
             
             // Configure components
             ConfigureOllamaConnector(ollamaConnector);
@@ -114,7 +114,7 @@ namespace CompanionIntelligence.Core
             return component;
         }
         
-        private void ConfigureOllamaConnector(XREALOllamaConnector connector)
+        private void ConfigureOllamaConnector(OllamaConnector connector)
         {
             // Use reflection to set private fields since they might not have public setters
             SetField(connector, "serverIP", ollamaServerIP);
@@ -122,7 +122,7 @@ namespace CompanionIntelligence.Core
             SetField(connector, "model", ollamaModel);
         }
         
-        private void ConfigureSpeechToText(XREALSpeechToText stt)
+        private void ConfigureSpeechToText(SpeechToText stt)
         {
             if (!string.IsNullOrEmpty(openAIApiKey) && openAIApiKey != "YOUR_OPENAI_API_KEY")
             {
@@ -130,7 +130,7 @@ namespace CompanionIntelligence.Core
             }
         }
         
-        private void ConfigureTextToSpeech(XREALTextToSpeech tts)
+        private void ConfigureTextToSpeech(TextToSpeech tts)
         {
             if (!string.IsNullOrEmpty(openAIApiKey) && openAIApiKey != "YOUR_OPENAI_API_KEY")
             {
@@ -138,8 +138,8 @@ namespace CompanionIntelligence.Core
             }
         }
         
-        private void ConfigureVisionSystem(XREALVisionSystem visionSystem, XREALCameraManager cameraManager, 
-            XREALSpeechToText speechToText, XREALTextToSpeech textToSpeech, XREALOllamaConnector ollamaConnector)
+        private void ConfigureVisionSystem(VisionSystem visionSystem, CameraManager cameraManager, 
+            SpeechToText speechToText, TextToSpeech textToSpeech, OllamaConnector ollamaConnector)
         {
             // Set component references using reflection
             SetField(visionSystem, "cameraManager", cameraManager);
@@ -148,8 +148,8 @@ namespace CompanionIntelligence.Core
             SetField(visionSystem, "ollamaConnector", ollamaConnector);
         }
         
-        private void ConfigureVoiceCommandHandler(XREALVoiceCommandHandler handler, XREALVisionSystem visionSystem,
-            XREALCameraManager cameraManager, XREALOllamaConnector ollamaConnector, XREALSpeechToText speechToText)
+        private void ConfigureVoiceCommandHandler(VoiceCommandHandler handler, VisionSystem visionSystem,
+            CameraManager cameraManager, OllamaConnector ollamaConnector, SpeechToText speechToText)
         {
             // Set component references using reflection
             SetField(handler, "visionSystem", visionSystem);
@@ -231,15 +231,15 @@ namespace CompanionIntelligence.Core
     /// </summary>
     public class XREALVisionDebugControls : MonoBehaviour
     {
-        private XREALVoiceCommandHandler voiceHandler;
-        private XREALSpeechToText speechToText;
-        private XREALVisionSystem visionSystem;
+        private VoiceCommandHandler voiceHandler;
+        private SpeechToText speechToText;
+        private VisionSystem visionSystem;
         
         private void Start()
         {
-            voiceHandler = GetComponent<XREALVoiceCommandHandler>();
-            speechToText = GetComponent<XREALSpeechToText>();
-            visionSystem = GetComponent<XREALVisionSystem>();
+            voiceHandler = GetComponent<VoiceCommandHandler>();
+            speechToText = GetComponent<SpeechToText>();
+            visionSystem = GetComponent<VisionSystem>();
         }
         
         private void Update()
@@ -270,19 +270,19 @@ namespace CompanionIntelligence.Core
             if (Input.GetKeyDown(KeyCode.L))
             {
                 speechToText?.ToggleListening();
-                Debug.Log("[XREALVisionDebugControls] Toggled voice listening");
+                Debug.Log("[VisionDebugControls] Toggled voice listening");
             }
             
             if (Input.GetKeyDown(KeyCode.Space))
             {
                 speechToText?.StartListening();
-                Debug.Log("[XREALVisionDebugControls] Started listening");
+                Debug.Log("[VisionDebugControls] Started listening");
             }
             
             if (Input.GetKeyUp(KeyCode.Space))
             {
                 speechToText?.StopListening();
-                Debug.Log("[XREALVisionDebugControls] Stopped listening");
+                Debug.Log("[VisionDebugControls] Stopped listening");
             }
             
             // System controls

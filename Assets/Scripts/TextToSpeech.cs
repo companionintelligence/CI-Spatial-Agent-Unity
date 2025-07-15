@@ -12,7 +12,7 @@ namespace CompanionIntelligence.Core
     /// XREAL Text to Speech - Handles audio synthesis and playback
     /// Consolidated TTS component optimized for XREAL devices
     /// </summary>
-    public class XREALTextToSpeech : MonoBehaviour
+    public class TextToSpeech : MonoBehaviour
     {
         [Header("TTS Configuration")]
         [SerializeField] private TTSService ttsService = TTSService.OpenAI;

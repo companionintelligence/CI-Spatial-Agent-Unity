@@ -13,13 +13,13 @@ namespace CompanionIntelligence.Tests
     public class XREALVisionSystemIntegrationImprovedTests
     {
         private GameObject visionSystemGO;
-        private XREALVisionSystem visionSystem;
+        private VisionSystem visionSystem;
 
         [SetUp]
         public void Setup()
         {
-            visionSystemGO = XREALTestUtilities.CreateTestVisionSystem();
-            visionSystem = visionSystemGO.GetComponent<XREALVisionSystem>();
+            visionSystemGO = TestUtilities.CreateTestVisionSystem();
+            visionSystem = visionSystemGO.GetComponent<VisionSystem>();
         }
 
         [TearDown]
@@ -33,17 +33,17 @@ namespace CompanionIntelligence.Tests
         public IEnumerator VisionSystem_FullWorkflow_WithMockComponents_CompletesSuccessfully()
         {
             // Replace components with mocks for reliable testing
-            var mockCamera = visionSystemGO.AddComponent<XREALTestUtilities.MockCameraManager>();
-            var mockOllama = visionSystemGO.AddComponent<XREALTestUtilities.MockOllamaConnector>();
+            var mockCamera = visionSystemGO.AddComponent<TestUtilities.MockCameraManager>();
+            var mockOllama = visionSystemGO.AddComponent<TestUtilities.MockOllamaConnector>();
             
             // Initialize mocks
             mockCamera.Initialize();
             mockOllama.Initialize();
             
             // Set up component references via reflection
-            var cameraField = typeof(XREALVisionSystem).GetField("cameraManager", 
+            var cameraField = typeof(VisionSystem).GetField("cameraManager", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var ollamaField = typeof(XREALVisionSystem).GetField("ollamaConnector", 
+            var ollamaField = typeof(VisionSystem).GetField("ollamaConnector", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             
             cameraField?.SetValue(visionSystem, mockCamera);
@@ -64,14 +64,14 @@ namespace CompanionIntelligence.Tests
             visionSystem.gameObject.SetActive(true);
             
             // Wait for system to initialize
-            yield return XREALTestUtilities.WaitForCondition(() => systemReady, 10f);
+            yield return TestUtilities.WaitForCondition(() => systemReady, 10f);
             Assert.IsTrue(systemReady, "System should initialize successfully");
             
             // Simulate voice command workflow
             visionSystem.ProcessTextCommand("What do you see?");
             
             // Wait for workflow completion
-            yield return XREALTestUtilities.WaitForCondition(() => visionResponseReceived, 10f);
+            yield return TestUtilities.WaitForCondition(() => visionResponseReceived, 10f);
             
             Assert.IsTrue(voiceCommandReceived, "Voice command should be processed");
             Assert.IsTrue(imageCaptured, "Image should be captured");
@@ -81,8 +81,8 @@ namespace CompanionIntelligence.Tests
         [UnityTest]
         public IEnumerator VisionSystem_ErrorHandling_RecoversProperly()
         {
-            var mockCamera = visionSystemGO.AddComponent<XREALTestUtilities.MockCameraManager>();
-            var mockOllama = visionSystemGO.AddComponent<XREALTestUtilities.MockOllamaConnector>();
+            var mockCamera = visionSystemGO.AddComponent<TestUtilities.MockCameraManager>();
+            var mockOllama = visionSystemGO.AddComponent<TestUtilities.MockOllamaConnector>();
             
             // Configure mock to simulate error
             mockOllama.ShouldSimulateError = true;
@@ -91,9 +91,9 @@ namespace CompanionIntelligence.Tests
             mockOllama.Initialize();
             
             // Set up component references
-            var cameraField = typeof(XREALVisionSystem).GetField("cameraManager", 
+            var cameraField = typeof(VisionSystem).GetField("cameraManager", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var ollamaField = typeof(XREALVisionSystem).GetField("ollamaConnector", 
+            var ollamaField = typeof(VisionSystem).GetField("ollamaConnector", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             
             cameraField?.SetValue(visionSystem, mockCamera);
@@ -110,27 +110,27 @@ namespace CompanionIntelligence.Tests
             // Trigger error scenario
             visionSystem.ProcessTextCommand("Cause an error");
             
-            yield return XREALTestUtilities.WaitForCondition(() => systemError, 5f);
+            yield return TestUtilities.WaitForCondition(() => systemError, 5f);
             Assert.IsTrue(systemError, "System should detect and report error");
             
             // Verify system can recover
             yield return new WaitForSeconds(3f); // Wait for error recovery
-            Assert.AreEqual(XREALVisionSystem.SystemState.Idle, visionSystem.CurrentState, 
+            Assert.AreEqual(VisionSystem.SystemState.Idle, visionSystem.CurrentState, 
                 "System should return to Idle state after error");
         }
 
         [UnityTest]
         public IEnumerator VisionSystem_StateTransitions_AreCorrect()
         {
-            var mockCamera = visionSystemGO.AddComponent<XREALTestUtilities.MockCameraManager>();
-            var mockOllama = visionSystemGO.AddComponent<XREALTestUtilities.MockOllamaConnector>();
+            var mockCamera = visionSystemGO.AddComponent<TestUtilities.MockCameraManager>();
+            var mockOllama = visionSystemGO.AddComponent<TestUtilities.MockOllamaConnector>();
             
             mockCamera.Initialize();
             mockOllama.Initialize();
             
-            var cameraField = typeof(XREALVisionSystem).GetField("cameraManager", 
+            var cameraField = typeof(VisionSystem).GetField("cameraManager", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var ollamaField = typeof(XREALVisionSystem).GetField("ollamaConnector", 
+            var ollamaField = typeof(VisionSystem).GetField("ollamaConnector", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             
             cameraField?.SetValue(visionSystem, mockCamera);
@@ -140,7 +140,7 @@ namespace CompanionIntelligence.Tests
             yield return new WaitForSeconds(1f);
             
             // Initial state should be Idle
-            Assert.AreEqual(XREALVisionSystem.SystemState.Idle, visionSystem.CurrentState);
+            Assert.AreEqual(VisionSystem.SystemState.Idle, visionSystem.CurrentState);
             
             // Process command and verify state transitions
             visionSystem.ProcessTextCommand("Test command");
@@ -149,14 +149,14 @@ namespace CompanionIntelligence.Tests
             yield return new WaitForSeconds(2f);
             
             // Should return to Idle after processing
-            Assert.AreEqual(XREALVisionSystem.SystemState.Idle, visionSystem.CurrentState);
+            Assert.AreEqual(VisionSystem.SystemState.Idle, visionSystem.CurrentState);
         }
 
         [Test]
         public void VisionSystem_MultipleCommands_QueueCorrectly()
         {
-            var mockCamera = visionSystemGO.AddComponent<XREALTestUtilities.MockCameraManager>();
-            var mockOllama = visionSystemGO.AddComponent<XREALTestUtilities.MockOllamaConnector>();
+            var mockCamera = visionSystemGO.AddComponent<TestUtilities.MockCameraManager>();
+            var mockOllama = visionSystemGO.AddComponent<TestUtilities.MockOllamaConnector>();
             
             mockCamera.Initialize();
             mockOllama.Initialize();
@@ -178,7 +178,7 @@ namespace CompanionIntelligence.Tests
         {
             // Test system behavior with missing components
             var emptyGO = new GameObject("EmptyVisionSystem");
-            var emptySystem = emptyGO.AddComponent<XREALVisionSystem>();
+            var emptySystem = emptyGO.AddComponent<VisionSystem>();
             
             // Should handle missing components gracefully
             Assert.DoesNotThrow(() => emptySystem.ProcessTextCommand("Test"));
@@ -198,8 +198,8 @@ namespace CompanionIntelligence.Tests
         [UnityTest]
         public IEnumerator VisionSystem_Performance_MeetsBaseline()
         {
-            var mockCamera = visionSystemGO.AddComponent<XREALTestUtilities.MockCameraManager>();
-            var mockOllama = visionSystemGO.AddComponent<XREALTestUtilities.MockOllamaConnector>();
+            var mockCamera = visionSystemGO.AddComponent<TestUtilities.MockCameraManager>();
+            var mockOllama = visionSystemGO.AddComponent<TestUtilities.MockOllamaConnector>();
             
             // Set fast response times for performance testing
             mockOllama.ResponseDelay = 0.1f;
@@ -207,9 +207,9 @@ namespace CompanionIntelligence.Tests
             mockCamera.Initialize();
             mockOllama.Initialize();
             
-            var cameraField = typeof(XREALVisionSystem).GetField("cameraManager", 
+            var cameraField = typeof(VisionSystem).GetField("cameraManager", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var ollamaField = typeof(XREALVisionSystem).GetField("ollamaConnector", 
+            var ollamaField = typeof(VisionSystem).GetField("ollamaConnector", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             
             cameraField?.SetValue(visionSystem, mockCamera);
@@ -224,7 +224,7 @@ namespace CompanionIntelligence.Tests
             var startTime = Time.realtimeSinceStartup;
             visionSystem.ProcessTextCommand("Performance test");
             
-            yield return XREALTestUtilities.WaitForCondition(() => responseReceived, 5f);
+            yield return TestUtilities.WaitForCondition(() => responseReceived, 5f);
             
             var totalTime = Time.realtimeSinceStartup - startTime;
             

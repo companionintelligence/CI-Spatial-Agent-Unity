@@ -13,13 +13,13 @@ namespace CompanionIntelligence.Tests
     public class XREALOllamaConnectorImprovedTests
     {
         private GameObject testGameObject;
-        private XREALOllamaConnector ollamaConnector;
+        private OllamaConnector ollamaConnector;
 
         [SetUp]
         public void Setup()
         {
             testGameObject = new GameObject("TestOllamaConnector");
-            ollamaConnector = testGameObject.AddComponent<XREALOllamaConnector>();
+            ollamaConnector = testGameObject.AddComponent<OllamaConnector>();
         }
 
         [TearDown]
@@ -85,12 +85,12 @@ namespace CompanionIntelligence.Tests
             ollamaConnector.Initialize();
             
             // Set processing state via reflection
-            var isProcessingField = typeof(XREALOllamaConnector).GetField("isProcessing", 
+            var isProcessingField = typeof(OllamaConnector).GetField("isProcessing", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             isProcessingField?.SetValue(ollamaConnector, true);
             
             // Should reject new requests when busy
-            var testTexture = XREALTestUtilities.CreateTestTexture();
+            var testTexture = TestUtilities.CreateTestTexture();
             ollamaConnector.SendVisionRequest(testTexture, "Test");
             
             // Should still be processing the first request
@@ -105,14 +105,14 @@ namespace CompanionIntelligence.Tests
             ollamaConnector.Initialize();
             
             // Set a very short timeout for testing
-            var timeoutField = typeof(XREALOllamaConnector).GetField("requestTimeout", 
+            var timeoutField = typeof(OllamaConnector).GetField("requestTimeout", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             timeoutField?.SetValue(ollamaConnector, 0.1f);
             
             bool errorOccurred = false;
             ollamaConnector.OnError.AddListener((error) => errorOccurred = true);
             
-            var testTexture = XREALTestUtilities.CreateTestTexture();
+            var testTexture = TestUtilities.CreateTestTexture();
             ollamaConnector.SendVisionRequest(testTexture, "Test prompt");
             
             // Wait for timeout
@@ -142,9 +142,9 @@ namespace CompanionIntelligence.Tests
         public void OllamaConnector_InvalidServerConfig_HandlesGracefully()
         {
             // Test with invalid server configuration
-            var serverIPField = typeof(XREALOllamaConnector).GetField("serverIP", 
+            var serverIPField = typeof(OllamaConnector).GetField("serverIP", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var serverPortField = typeof(XREALOllamaConnector).GetField("serverPort", 
+            var serverPortField = typeof(OllamaConnector).GetField("serverPort", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             
             serverIPField?.SetValue(ollamaConnector, "invalid.server.address");
@@ -158,7 +158,7 @@ namespace CompanionIntelligence.Tests
         {
             ollamaConnector.Initialize();
             
-            var largeTexture = XREALTestUtilities.CreateTestTexture(2048, 2048);
+            var largeTexture = TestUtilities.CreateTestTexture(2048, 2048);
             
             Assert.DoesNotThrow(() => ollamaConnector.SendVisionRequest(largeTexture, "Describe this large image"));
             
@@ -168,7 +168,7 @@ namespace CompanionIntelligence.Tests
         [Test]
         public void OllamaConnector_ModelConfiguration_IsValid()
         {
-            var modelField = typeof(XREALOllamaConnector).GetField("model", 
+            var modelField = typeof(OllamaConnector).GetField("model", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             var model = modelField?.GetValue(ollamaConnector) as string;
             
@@ -179,7 +179,7 @@ namespace CompanionIntelligence.Tests
         [Test]
         public void OllamaConnector_SystemPrompt_IsConfigured()
         {
-            var systemPromptField = typeof(XREALOllamaConnector).GetField("systemPrompt", 
+            var systemPromptField = typeof(OllamaConnector).GetField("systemPrompt", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             var systemPrompt = systemPromptField?.GetValue(ollamaConnector) as string;
             

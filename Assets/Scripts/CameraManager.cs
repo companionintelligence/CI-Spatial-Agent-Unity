@@ -9,7 +9,7 @@ namespace CompanionIntelligence.Core
     /// Simplified and consolidated from multiple camera components
     /// Implements Unity best practices for performance and memory management
     /// </summary>
-    public class XREALCameraManager : MonoBehaviour
+    public class CameraManager : MonoBehaviour
     {
         [Header("Camera Configuration")]
         [SerializeField] private Camera targetCamera;

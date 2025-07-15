@@ -11,10 +11,10 @@ namespace CompanionIntelligence.Tests
     /// Tests camera initialization, capture functionality, and error handling
     /// Following Unity testing best practices
     /// </summary>
-    public class XREALCameraManagerImprovedTests
+    public class CameraManagerImprovedTests
     {
         private GameObject testGameObject;
-        private XREALCameraManager cameraManager;
+        private CameraManager cameraManager;
         private Camera testCamera;
 
         [SetUp]
@@ -28,10 +28,10 @@ namespace CompanionIntelligence.Tests
 
             // Create camera manager
             testGameObject = new GameObject("TestCameraManager");
-            cameraManager = testGameObject.AddComponent<XREALCameraManager>();
+            cameraManager = testGameObject.AddComponent<CameraManager>();
 
             // Set up test camera reference
-            var targetCameraField = typeof(XREALCameraManager).GetField("targetCamera", 
+            var targetCameraField = typeof(CameraManager).GetField("targetCamera", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             targetCameraField?.SetValue(cameraManager, testCamera);
         }
@@ -62,10 +62,10 @@ namespace CompanionIntelligence.Tests
         [Test]
         public void CameraManager_InitializeWithoutCamera_HandlesGracefully()
         {
-            var emptyCameraManager = new GameObject("EmptyCameraManager").AddComponent<XREALCameraManager>();
+            var emptyCameraManager = new GameObject("EmptyCameraManager").AddComponent<CameraManager>();
             
             // Disable auto-find to test null camera scenario
-            var autoFindField = typeof(XREALCameraManager).GetField("autoFindMainCamera", 
+            var autoFindField = typeof(CameraManager).GetField("autoFindMainCamera", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             autoFindField?.SetValue(emptyCameraManager, false);
 
@@ -93,12 +93,12 @@ namespace CompanionIntelligence.Tests
             cameraManager.CaptureImage();
             
             // Wait for capture to complete
-            yield return XREALTestUtilities.WaitForCondition(() => imageCaptured, 5f);
+            yield return TestUtilities.WaitForCondition(() => imageCaptured, 5f);
             
             Assert.IsTrue(imageCaptured);
             Assert.IsTrue(cameraManager.HasCapturedImage);
             Assert.IsNotNull(capturedImage);
-            Assert.IsTrue(XREALTestUtilities.IsValidVisionTexture(capturedImage));
+            Assert.IsTrue(TestUtilities.IsValidVisionTexture(capturedImage));
         }
 
         [Test]
@@ -114,14 +114,14 @@ namespace CompanionIntelligence.Tests
         [Test]
         public void CameraManager_GetLastCapturedImageCopy_ReturnsValidCopy()
         {
-            var testTexture = XREALTestUtilities.CreateTestTexture();
+            var testTexture = TestUtilities.CreateTestTexture();
             
             // Set the last captured image via reflection for testing
-            var lastImageField = typeof(XREALCameraManager).GetField("lastCapturedImage", 
+            var lastImageField = typeof(CameraManager).GetField("lastCapturedImage", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             lastImageField?.SetValue(cameraManager, testTexture);
             
-            var hasCapturedField = typeof(XREALCameraManager).GetField("hasCapturedImage", 
+            var hasCapturedField = typeof(CameraManager).GetField("hasCapturedImage", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             hasCapturedField?.SetValue(cameraManager, true);
             
@@ -140,7 +140,7 @@ namespace CompanionIntelligence.Tests
         public void CameraManager_ClearCapturedImage_ResetsState()
         {
             // Set up captured state
-            var hasCapturedField = typeof(XREALCameraManager).GetField("hasCapturedImage", 
+            var hasCapturedField = typeof(CameraManager).GetField("hasCapturedImage", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             hasCapturedField?.SetValue(cameraManager, true);
             
@@ -161,7 +161,7 @@ namespace CompanionIntelligence.Tests
             for (int i = 0; i < 3; i++)
             {
                 cameraManager.CaptureImage();
-                yield return XREALTestUtilities.WaitForCondition(() => captureCount > i, 5f);
+                yield return TestUtilities.WaitForCondition(() => captureCount > i, 5f);
             }
             
             Assert.AreEqual(3, captureCount);

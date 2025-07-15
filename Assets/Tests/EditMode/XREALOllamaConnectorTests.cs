@@ -13,13 +13,13 @@ namespace CompanionIntelligence.Tests
     public class XREALOllamaConnectorTests
     {
         private GameObject testGameObject;
-        private XREALOllamaConnector ollamaConnector;
+        private OllamaConnector ollamaConnector;
 
         [SetUp]
         public void Setup()
         {
             testGameObject = new GameObject("TestOllamaConnector");
-            ollamaConnector = testGameObject.AddComponent<XREALOllamaConnector>();
+            ollamaConnector = testGameObject.AddComponent<OllamaConnector>();
         }
 
         [TearDown]
@@ -139,7 +139,7 @@ namespace CompanionIntelligence.Tests
         public void OllamaConnector_ModelSettings_AreValid()
         {
             // Test model parameter validation through OnValidate
-            var onValidateMethod = typeof(XREALOllamaConnector).GetMethod("OnValidate", 
+            var onValidateMethod = typeof(OllamaConnector).GetMethod("OnValidate", 
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             
             if (onValidateMethod != null)

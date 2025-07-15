@@ -29,7 +29,7 @@ namespace CompanionIntelligence.Core
             "Tell me about the environment"
         };
         
-        private XREALVisionSystem visionSystem;
+        private VisionSystem visionSystem;
         private int currentCommandIndex = 0;
         
         private void Start()
@@ -57,10 +57,10 @@ namespace CompanionIntelligence.Core
             SetPrivateField(sceneSetup, "addDebugControls", true);
             
             // Setup the scene
-            sceneSetup.SetupXREALVisionScene();
+            sceneSetup.SetupVisionScene();
             
             // Get reference to the created vision system
-            visionSystem = FindObjectOfType<XREALVisionSystem>();
+            visionSystem = FindObjectOfType<VisionSystem>();
             
             if (visionSystem != null)
             {

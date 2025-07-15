@@ -11,7 +11,7 @@ namespace CompanionIntelligence.Tests
     /// Provides common test helpers and mock implementations
     /// Following Unity testing best practices
     /// </summary>
-    public static class XREALTestUtilities
+    public static class TestUtilities
     {
         /// <summary>
         /// Creates a test texture for vision processing tests
@@ -93,12 +93,12 @@ namespace CompanionIntelligence.Tests
         public static GameObject CreateTestVisionSystem()
         {
             var go = new GameObject("TestVisionSystem");
-            go.AddComponent<XREALVisionSystem>();
-            go.AddComponent<XREALCameraManager>();
-            go.AddComponent<XREALOllamaConnector>();
-            go.AddComponent<XREALSpeechToText>();
-            go.AddComponent<XREALTextToSpeech>();
-            go.AddComponent<XREALVoiceCommandHandler>();
+            go.AddComponent<VisionSystem>();
+            go.AddComponent<CameraManager>();
+            go.AddComponent<OllamaConnector>();
+            go.AddComponent<SpeechToText>();
+            go.AddComponent<TextToSpeech>();
+            go.AddComponent<VoiceCommandHandler>();
             return go;
         }
 
@@ -284,12 +284,12 @@ namespace CompanionIntelligence.Tests
             var gameObject = new GameObject(name);
             
             // Add all core components
-            gameObject.AddComponent<XREALVisionSystem>();
-            gameObject.AddComponent<XREALCameraManager>();
-            gameObject.AddComponent<XREALOllamaConnector>();
-            gameObject.AddComponent<XREALSpeechToText>();
-            gameObject.AddComponent<XREALTextToSpeech>();
-            gameObject.AddComponent<XREALVoiceCommandHandler>();
+            gameObject.AddComponent<VisionSystem>();
+            gameObject.AddComponent<CameraManager>();
+            gameObject.AddComponent<OllamaConnector>();
+            gameObject.AddComponent<SpeechToText>();
+            gameObject.AddComponent<TextToSpeech>();
+            gameObject.AddComponent<VoiceCommandHandler>();
             
             return gameObject;
         }
@@ -325,12 +325,12 @@ namespace CompanionIntelligence.Tests
         /// </summary>
         public static bool ValidateVisionSystemSetup(GameObject gameObject)
         {
-            return gameObject.GetComponent<XREALVisionSystem>() != null &&
-                   gameObject.GetComponent<XREALCameraManager>() != null &&
-                   gameObject.GetComponent<XREALOllamaConnector>() != null &&
-                   gameObject.GetComponent<XREALSpeechToText>() != null &&
-                   gameObject.GetComponent<XREALTextToSpeech>() != null &&
-                   gameObject.GetComponent<XREALVoiceCommandHandler>() != null;
+            return gameObject.GetComponent<VisionSystem>() != null &&
+                   gameObject.GetComponent<CameraManager>() != null &&
+                   gameObject.GetComponent<OllamaConnector>() != null &&
+                   gameObject.GetComponent<SpeechToText>() != null &&
+                   gameObject.GetComponent<TextToSpeech>() != null &&
+                   gameObject.GetComponent<VoiceCommandHandler>() != null;
         }
 
         /// <summary>
