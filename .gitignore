@@ -97,3 +97,8 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# XREAL SDK - proprietary package (must be downloaded separately)
+/Packages/com.xreal.xr/
+com.xreal.xr.tar.gz
+.xreal-sdk/*.tar.gz
