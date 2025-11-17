@@ -11,6 +11,8 @@ Quick steps:
 2. In Unity: Window → Package Manager → + → Add package from tarball
 3. Select the downloaded file
 
+📋 **First time setup?** Follow the [QUICKSTART.md](QUICKSTART.md) checklist for a step-by-step guide.
+
 ---
 
 <img width="2048" height="1365" alt="AR Headset" src="https://github.com/user-attachments/assets/32533133-bb8e-4d7f-b344-990db11e3aee" />
