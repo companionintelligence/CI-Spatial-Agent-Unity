@@ -31,6 +31,7 @@ The XREAL SDK is required for this project to build successfully. Follow these s
    - In the Package Manager, you should now see "XREAL XR Plugin" listed under "Custom" packages
    - The version should be 3.0.0-pre.4 or higher
    - Sample scenes should be available in `Assets/Samples/XREAL XR Plugin/`
+   - Unity will automatically update `Packages/packages-lock.json` to include the XREAL package reference
 
 ## Project Setup
 
