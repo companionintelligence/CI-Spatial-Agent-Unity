@@ -1,0 +1,19 @@
+{
+  "servers": {
+    "openaiDeveloperDocs": {
+      "type": "http",
+      "url": "https://developers.openai.com/mcp"
+    },
+    "ai-game-developer": {
+      "type": "http",
+      "url": "http://localhost:51360"
+    },
+    "blender-mcp": {
+      "type": "stdio",
+      "command": "python3",
+      "args": [
+        "scripts/blender_mcp_bridge.py"
+      ]
+    }
+  }
+}
