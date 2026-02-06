@@ -1,0 +1,9 @@
+# Codex project configuration
+# Trust this project in Codex so these settings take effect.
+
+[mcp_servers.openaiDeveloperDocs]
+url = "https://developers.openai.com/mcp"
+
+[mcp_servers.aiGameDeveloper]
+command = "/Users/liam/devel/ci/xr/CI-Unity-XR/Library/mcp-server/osx-arm64/unity-mcp-server"
+args = ["port=8080", "client-transport=stdio"]

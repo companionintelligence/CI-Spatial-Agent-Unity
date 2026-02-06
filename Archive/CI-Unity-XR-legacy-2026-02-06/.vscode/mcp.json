@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "openaiDeveloperDocs": {
+      "type": "http",
+      "url": "https://developers.openai.com/mcp"
+    },
+    "aiGameDeveloper": {
+      "type": "stdio",
+      "command": "/Users/liam/devel/ci/xr/CI-Unity-XR/Library/mcp-server/osx-arm64/unity-mcp-server",
+      "args": ["port=8080", "client-transport=stdio"]
+    }
+  }
+}
