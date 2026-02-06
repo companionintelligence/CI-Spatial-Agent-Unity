@@ -7,10 +7,13 @@ public class ZeroShotBootstrap : MonoBehaviour
     [Header("UI")]
     [SerializeField] Vector2 previewSize = new Vector2(640, 360);
     [SerializeField] Vector2 previewPosition = new Vector2(10, -10);
+    [SerializeField] ZeroShotBackendConfig backendConfig;
 
     void Start()
     {
         EnsureEventSystem();
+        if (backendConfig == null)
+            backendConfig = Resources.Load<ZeroShotBackendConfig>("ZeroShotBackendConfig");
         var canvas = BuildCanvas();
         var preview = BuildPreview(canvas.transform);
         var boundingContainer = BuildBoundingContainer(preview.transform);
@@ -32,6 +35,8 @@ public class ZeroShotBootstrap : MonoBehaviour
         SetField(detector, "sendButton", sendButton);
         SetField(detector, "statusText", statusText);
         SetField(detector, "worldCamera", Camera.main);
+        if (backendConfig != null)
+            detector.ApplyConfig(backendConfig);
     }
 
     void EnsureEventSystem()
@@ -81,6 +86,9 @@ public class ZeroShotBootstrap : MonoBehaviour
 
     InputField BuildPromptInput(Transform parent)
     {
+        var defaultPrompt = backendConfig != null && !string.IsNullOrEmpty(backendConfig.defaultPrompt)
+            ? backendConfig.defaultPrompt
+            : "a person";
         var go = new GameObject("PromptInput", typeof(RectTransform), typeof(Image), typeof(InputField));
         var rt = go.GetComponent<RectTransform>();
         rt.SetParent(parent, false);
@@ -101,7 +109,7 @@ public class ZeroShotBootstrap : MonoBehaviour
         textRT.offsetMax = new Vector2(-10, -6);
         var text = textGO.GetComponent<Text>();
         text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-        text.text = "a person";
+        text.text = defaultPrompt;
         text.color = Color.white;
 
         var placeholderGO = new GameObject("Placeholder", typeof(RectTransform), typeof(Text));
@@ -119,7 +127,7 @@ public class ZeroShotBootstrap : MonoBehaviour
         var input = go.GetComponent<InputField>();
         input.textComponent = text;
         input.placeholder = placeholder;
-        input.text = "a person";
+        input.text = defaultPrompt;
         return input;
     }
 

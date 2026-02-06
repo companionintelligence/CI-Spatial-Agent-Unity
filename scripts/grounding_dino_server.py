@@ -42,6 +42,18 @@ def build_dummy_detections(prompt: str, width: int, height: int):
     ]
 
 
+def build_xyxy(detections):
+    boxes = []
+    scores = []
+    labels = []
+    for det in detections:
+        x, y, w, h = det.get("bbox", [0, 0, 0, 0])
+        boxes.append([x, y, x + w, y + h])
+        scores.append(det.get("confidence", 0.0))
+        labels.append(det.get("label", "object"))
+    return boxes, scores, labels
+
+
 class Handler(BaseHTTPRequestHandler):
     def _set_headers(self, code=200):
         self.send_response(code)
@@ -82,12 +94,25 @@ class Handler(BaseHTTPRequestHandler):
             "frame_height": height,
             "detections": detections,
         }
+        boxes, scores, labels = build_xyxy(detections)
+        response["boxes"] = boxes
+        response["scores"] = scores
+        response["labels"] = labels
+        response["prompt"] = prompt
         self._set_headers(200)
         self.wfile.write(json.dumps(response).encode("utf-8"))
 
     def log_message(self, format, *args):
         # quiet
         return
+
+    def do_GET(self):
+        if self.path == "/health":
+            self._set_headers(200)
+            self.wfile.write(json.dumps({"ok": True, "dummy": DUMMY_DETECTIONS}).encode("utf-8"))
+            return
+        self._set_headers(404)
+        self.wfile.write(json.dumps({"error": "Not found"}).encode("utf-8"))
 
 
 def main():
