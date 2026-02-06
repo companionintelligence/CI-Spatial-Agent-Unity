@@ -30,6 +30,7 @@ public class AvatarBootstrap : MonoBehaviour
     GameObject _currentAvatar;
     bool _isLoading;
     AvatarObjectLoader _rpmLoader;
+    public event Action<GameObject> AvatarLoaded;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Bootstrap()
@@ -65,6 +66,26 @@ public class AvatarBootstrap : MonoBehaviour
     public string[] GetAvatarPaths()
     {
         return _avatarPaths ?? Array.Empty<string>();
+    }
+
+    public int GetAvatarCount()
+    {
+        return _avatarPaths?.Length ?? 0;
+    }
+
+    public int GetCurrentIndex()
+    {
+        return avatarIndex;
+    }
+
+    public GameObject GetCurrentAvatar()
+    {
+        return _currentAvatar;
+    }
+
+    public void RefreshAvatars()
+    {
+        RefreshAvatarList();
     }
 
     string ResolveAvatarFolder()
@@ -154,6 +175,7 @@ public class AvatarBootstrap : MonoBehaviour
         LogRigStatus(root, "glTFast");
         TryPlayFirstAnimation(root);
         _currentAvatar = root;
+        AvatarLoaded?.Invoke(root);
         _isLoading = false;
     }
 
@@ -190,6 +212,7 @@ public class AvatarBootstrap : MonoBehaviour
             ApplyAvatarBehaviors(root, sourcePath, rpmGender);
             LogRigStatus(root, "RPM");
             _currentAvatar = root;
+            AvatarLoaded?.Invoke(root);
             Debug.Log($"[AvatarBootstrap] RPM loaded avatar: {url} (gender={rpmGender})");
             return true;
         }
