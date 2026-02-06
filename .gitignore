@@ -16,4 +16,5 @@ UserSettings/
 *.pdb
 *.opendb
 *.VC.db
+mono_crash*.json
 Packages/packages-lock.json

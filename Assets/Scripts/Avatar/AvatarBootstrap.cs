@@ -23,6 +23,7 @@ public class AvatarBootstrap : MonoBehaviour
     [Header("Ready Player Me")]
     [SerializeField] bool useReadyPlayerMe = true;
     [SerializeField] string overrideAvatarUrl = "";
+    [SerializeField] bool useXrSkeleton = true;
 
     static AvatarBootstrap s_Instance;
     string[] _avatarPaths = Array.Empty<string>();
@@ -118,6 +119,9 @@ public class AvatarBootstrap : MonoBehaviour
             : "file://" + glbPath;
 
         var rpmUrl = string.IsNullOrEmpty(overrideAvatarUrl) ? uri : overrideAvatarUrl;
+        var inferredGender = InferGenderFromPath(glbPath);
+        if (useReadyPlayerMe && File.Exists(glbPath))
+            EnsureLocalMetadata(glbPath, inferredGender);
         if (useReadyPlayerMe)
         {
             bool loaded = await TryLoadWithReadyPlayerMeAsync(rpmUrl, glbPath);
@@ -146,7 +150,7 @@ public class AvatarBootstrap : MonoBehaviour
 
         await gltf.InstantiateMainSceneAsync(root.transform);
 
-        ApplyAvatarBehaviors(root, glbPath, AvatarGender.Any);
+        ApplyAvatarBehaviors(root, glbPath, inferredGender);
         LogRigStatus(root, "glTFast");
         TryPlayFirstAnimation(root);
         _currentAvatar = root;
@@ -315,5 +319,32 @@ public class AvatarBootstrap : MonoBehaviour
             return AvatarGender.Masculine;
 
         return AvatarGender.Any;
+    }
+
+    void EnsureLocalMetadata(string glbPath, AvatarGender gender)
+    {
+        try
+        {
+            var jsonPath = Path.ChangeExtension(glbPath, ".json");
+            if (string.IsNullOrEmpty(jsonPath) || File.Exists(jsonPath))
+                return;
+
+            var outfitGender = gender switch
+            {
+                AvatarGender.Masculine => "masculine",
+                AvatarGender.Feminine => "feminine",
+                _ => "neutral"
+            };
+            var bodyType = useXrSkeleton ? "fullbody-xr" : "fullbody";
+            var timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'");
+
+            var json = $"{{\"bodyType\":\"{bodyType}\",\"outfitGender\":\"{outfitGender}\",\"updatedAt\":\"{timestamp}\",\"skinTone\":\"\"}}";
+            File.WriteAllText(jsonPath, json);
+            Debug.Log($"[AvatarBootstrap] Wrote local metadata for RPM loader: {jsonPath}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[AvatarBootstrap] Failed to write local metadata: {ex.Message}");
+        }
     }
 }
