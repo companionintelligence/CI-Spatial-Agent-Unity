@@ -1,6 +1,7 @@
 Private and Confidential
 
-# XREAL Unity
+# CI Spatial Companion
+Unity
 
 <img width="2048" height="1365" alt="AR Headset" src="https://github.com/user-attachments/assets/32533133-bb8e-4d7f-b344-990db11e3aee" />
 <img width="2048" height="911" alt="AR Use Caee" src="https://github.com/user-attachments/assets/6e40b940-bd6a-4e23-a1af-004c322b6679" />
