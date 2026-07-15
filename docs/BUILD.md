@@ -1,0 +1,47 @@
+# Building for Quest 3 and Pico
+
+The project is OpenXR-first: **one APK runs on both headsets**. The only per-headset difference is a scripting define (`XRSCAN_QUEST` / `XRSCAN_PICO`) that gates any platform-specific assembly code — the OpenXR feature groups (Meta Quest + PICO) are both enabled, and the runtime picks the right one on launch.
+
+## One-click build
+
+Menu **`XRScan → Build`** (from `Assets/XRScan/Editor/XRScanBuilder.cs`):
+
+| Menu item | Output |
+|---|---|
+| **Quest 3 (Android APK)** | `Builds/CISpatialCompanion-Quest.apk` (define `XRSCAN_QUEST`) |
+| **Pico (Android APK)** | `Builds/CISpatialCompanion-Pico.apk` (define `XRSCAN_PICO`) |
+| **Configure Android settings (no build)** | applies the player settings without building |
+
+Each item applies the correct player settings, sets the platform define, and builds the app scene (`XRScan_Main`). Deploy with:
+
+```
+adb install -r Builds/CISpatialCompanion-Quest.apk
+```
+
+For CI, call the same code headlessly:
+
+```
+Unity.exe -quit -batchmode -projectPath . -executeMethod XRScan.EditorTools.XRScanBuilder.BuildQuest
+```
+
+## What's preconfigured
+
+`XRScanBuilder.ConfigureAndroid()` (run automatically before every build) sets:
+
+- **Scripting backend** IL2CPP · **Architecture** ARM64
+- **Graphics API** Vulkan (GLES removed)
+- **Min SDK** Android 12 / API 32 (required for XR CPU camera images)
+- **Color space** Linear · **Stereo rendering** Single Pass Instanced
+- **App id** `com.companionintelligence.xrscan`
+
+**XR Plug-in Management** (Project Settings): the OpenXR loader is enabled for Android with the Meta Quest and PICO feature groups.
+
+**Permissions** are injected into the generated manifest at build time by `XRScanManifestPostProcessor` (merge-safe — it never overwrites a hand-authored manifest):
+
+- `android.permission.RECORD_AUDIO` — microphone for speech-to-text
+- `horizonos.permission.HEADSET_CAMERA` — Quest Passthrough Camera API
+- `com.oculus.permission.USE_SCENE` — Meta scene understanding
+
+## GUI Build Profiles (optional)
+
+If you prefer Unity's **Build Profiles** window (Quest / Pico entries): create two Android profiles there and set their *Scripting Define Symbols* to `XRSCAN_QUEST` and `XRSCAN_PICO` respectively. The build menu above does the same thing and is the recommended path for repeatable / CI builds.

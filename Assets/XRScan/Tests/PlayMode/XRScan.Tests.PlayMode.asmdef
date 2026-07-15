@@ -1,0 +1,29 @@
+{
+    "name": "XRScan.Tests.PlayMode",
+    "rootNamespace": "XRScan.Tests.PlayMode",
+    "references": [
+        "XRScan.Core",
+        "XRScan.Platform",
+        "XRScan.Vision",
+        "XRScan.Mapping",
+        "XRScan.Mocks",
+        "XRScan.Agent",
+        "XRScan.Avatar",
+        "XRScan.App",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
