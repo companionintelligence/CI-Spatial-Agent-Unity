@@ -3,7 +3,8 @@
     "rootNamespace": "XRScan.Avatar",
     "references": [
         "XRScan.Core",
-        "Unity.AI.Navigation"
+        "Unity.AI.Navigation",
+        "uLipSync.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

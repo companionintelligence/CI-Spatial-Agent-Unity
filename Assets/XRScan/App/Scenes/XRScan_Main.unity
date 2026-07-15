@@ -344,7 +344,7 @@ PrefabInstance:
       addedObject: {fileID: 599888116}
     - targetCorrespondingSourceObject: {fileID: 6635245195314443262, guid: f7e7fbf4148f5554dba3aa151a9822dd, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 599888118}
+      addedObject: {fileID: 599888121}
   m_SourcePrefab: {fileID: -4161369568681901532, guid: f7e7fbf4148f5554dba3aa151a9822dd, type: 3}
 --- !u!4 &599888113 stripped
 Transform:
@@ -391,24 +391,6 @@ MonoBehaviour:
   head: {fileID: 0}
   turnSpeed: 4
   yawOnlyForBody: 1
---- !u!114 &599888118
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 599888115}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 908f685418e55e74680cd8e34b225946, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: XRScan.Avatar::XRScan.Avatar.VisemeController
-  audioSource: {fileID: 599888119}
-  faceRenderer: {fileID: 599888114}
-  mouthOpenBlendShape: mouthOpen
-  jawOpenBlendShape: jawOpen
-  gain: 300
-  smoothing: 12
 --- !u!82 &599888119
 AudioSource:
   m_ObjectHideFlags: 0
@@ -521,6 +503,22 @@ MonoBehaviour:
   avatarPrefab: {fileID: 0}
   avatarRoot: {fileID: 599888113}
   headOverride: {fileID: 0}
+--- !u!114 &599888121
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 599888115}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a1f9c1811603064ebdac4da6cb83ac5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: XRScan.Avatar::XRScan.Avatar.AvatarLipSync
+  profile: {fileID: 11400000, guid: e7bee847b0146493d97aceaf14bb2903, type: 2}
+  faceRenderer: {fileID: 599888114}
+  teethRenderer: {fileID: 1174296082}
+  maxWeight: 1.2
 --- !u!1 &681259751
 GameObject:
   m_ObjectHideFlags: 0
@@ -741,6 +739,11 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!137 &1174296082 stripped
+SkinnedMeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 4495114683468275367, guid: f7e7fbf4148f5554dba3aa151a9822dd, type: 3}
+  m_PrefabInstance: {fileID: 599888112}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1265999122
 GameObject:
   m_ObjectHideFlags: 0
