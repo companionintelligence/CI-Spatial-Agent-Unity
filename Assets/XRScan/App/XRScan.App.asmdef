@@ -1,0 +1,25 @@
+{
+    "name": "XRScan.App",
+    "rootNamespace": "XRScan.App",
+    "references": [
+        "XRScan.Core",
+        "XRScan.Platform",
+        "XRScan.Vision",
+        "XRScan.Mapping",
+        "XRScan.Avatar",
+        "XRScan.Agent",
+        "XRScan.Mocks",
+        "XRScan.Voice",
+        "XRScan.Llm",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

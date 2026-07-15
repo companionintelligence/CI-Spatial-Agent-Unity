@@ -1,127 +1,79 @@
 Private and Confidential
 
 # CI Spatial Companion
-Unity
 
-<img width="2048" height="1365" alt="AR Headset" src="https://github.com/user-attachments/assets/32533133-bb8e-4d7f-b344-990db11e3aee" />
-<img width="2048" height="911" alt="AR Use Caee" src="https://github.com/user-attachments/assets/6e40b940-bd6a-4e23-a1af-004c322b6679" />
+An embodied mixed-reality companion for **Meta Quest 3** and **Pico** — a spatial agent that scans the room, drops world-anchored pins on detected objects, and answers questions about them through a **Ready Player Me avatar** that looks at you, speaks with viseme lip-sync, and (WIP) walks the space.
 
-https://github.com/user-attachments/assets/3e425d58-8093-4978-b5f8-083bd84c2594
+> **Ground-up rebuild (July 2026).** Unifies the scanning + embodied-avatar goals on a supported LTS, replacing the earlier XREAL prototype. Original design brief preserved at the bottom of this file.
 
+## Status
 
-https://docs.google.com/document/d/1b7BSgvqpc9Hzb5csGv7V6cEOdlgvahUWlV_8k47lfqM/edit?userstoinvite=tristanskyhook@gmail.com&sharingaction=manageaccess&role=writer&tab=t.0
+- **Unity 6000.3.19f1 (6.3 LTS)** · URP · OpenXR-first (Meta Quest + PICO feature groups)
+- All assemblies compile green; **10 EditMode tests passing**
+- Phases 1–2 verified running in-Editor; Phases 3–6 implemented (on-device ML / device-only paths are scaffolded behind interfaces)
 
-Existing Tech on RPM / Whisper / Piper
-https://github.com/companionintelligence/CI-Embodied-Companion-Web
-New one we want to build
-https://github.com/companionintelligence/CI-Embodied-Companion-Unity  
+## Why the rebuild
 
-RPM Command Pallate 
+The previous prototype targeted a since-broken toolchain. The full Meta XR SDK, UnityGLTF, and NaughtyAttributes do **not** compile on Unity 6.4/6.5 (a hard `CS0619` on `Object.GetInstanceID()`), and those are non-LTS releases. This rebuild targets **Unity 6.3 LTS** (supported to Dec 2027, validated by every vendor SDK in the stack) and uses the **OpenXR** path — `com.unity.xr.meta-openxr` for Quest and the PICO OpenXR SDK for Pico — so a single codebase produces one cross-vendor APK.
 
-CI Commercial 2025-7-10 Media Scratchpad 
-GOAL
+## Architecture
 
-BUILD A CLONE OF GOOGLE ASTRA / META AI WITH LOCAL EMBODIED AGENTS!
-Project Astra - Google DeepMind 
+OpenXR-first: the C# never branches per vendor — only the enabled OpenXR feature group changes. Every platform capability sits behind a `XRScan.Core` interface with a capability flag and graceful fallback (e.g. consumer Pico exposes no per-app RGB frames, so live-camera scanning auto-degrades to scene-semantics pins).
 
-hAI! Friend MR on Meta Quest | Quest VR Games 
+| Assembly | Responsibility |
+|---|---|
+| `XRScan.Core` | Zero-vendor-dependency interfaces + DTOs (the compile firewall) |
+| `XRScan.Platform` | AR Foundation camera / scene / room-mesh providers; `PlatformCapabilities` |
+| `XRScan.Vision` | CV server client + `RemoteCvDetector`; on-device `SentisYoloDetector` (scaffold) |
+| `XRScan.Mapping` | `ViewportRaycaster`, `SpatialPinManager` (2D detection → world pins) |
+| `XRScan.Avatar` | Avatar load, gaze, gesture, viseme lip-sync, NavMesh locomotion |
+| `XRScan.Voice` | STT / TTS (cloud + on-device Sentis/Piper scaffolds) |
+| `XRScan.Llm` | Pluggable LLM backends (Ollama / OpenAI / Claude / CI server) |
+| `XRScan.Agent` | `ConversationOrchestrator` + `SceneKnowledgeBase` (grounds the LLM in scanned pins) |
+| `XRScan.Export` | glTF export via glTFast + server sync |
+| `XRScan.App` | `AppBootstrap` startup wiring + `ScanController` |
+| `XRScan.Mocks` | Editor/test doubles so the whole app runs with no device/server |
 
+### Pluggable intelligence (the "hybrid" seam)
 
+Every stage is an interface — swap the implementation via config, no recompile:
 
-Get QuestVisionKit/ /Samples/5 running with openai key
-Put rpm avatar in the MR scene in a reasonable place
-Make rpm avatar talk with whisper/piper w/ visemes like in web version
-Like this https://github.com/companionintelligence/CI-Embodied-Companion-Web/blob/main/chat/stt-whisper.js
-THERE IS OTHER EXAMPLES OF whisper/piper w/ visemes IN THE UNITY ASSET STORE
-RT-Voice PRO | Audio | Unity Asset Store 
-SALSA LipSync Suite | Animation Tools | Unity Asset Store 
-SpeechBlend LipSync | Animation Tools | Unity Asset Store 
-API for ChatGPT - Easy AI Integration 
-Dialogue System for Unity Addon for OpenAI, ElevenLabs & Other Generative AI | AI-ML Integration 
+- `IObjectDetector` → remote CV server **or** on-device Sentis (auto-selected by `DetectorFactory`)
+- `ILlmBackend` → Ollama / OpenAI / Claude / Companion Intelligence server
+- `ISpeechToText` / `ITextToSpeech` → cloud Whisper/TTS **or** on-device Sentis Whisper / Piper
+- `ICameraProvider` → Quest passthrough (AR Foundation) with a Pico/desktop fallback
 
-expand our embodied agent interface with Unity. Unity offers us unique abilities to build mixed reality interactions between an embodied agent and the real world using multimodal vision systems in models like LLAMA 3.2. 
+Endpoints and API keys are read from `ServerConfig` / `LlmConfig` / `VoiceConfig` ScriptableObjects via PlayerPrefs / environment variables — **never committed**.
 
-build for Mobile, XREAL, and Quest 3. 
+## Getting started
 
-The concept is to have a Ready Player Me avatar read with animations and Viseme Voice puppeteering. 
+1. Open with **Unity 6000.3.19f1** (with Android Build Support). Packages resolve automatically (RPM, uLipSync, glTFast, PICO OpenXR are pulled via git).
+2. Open `Assets/XRScan/App/Scenes/XRScan_Main.unity` and press **Play** — it runs entirely on mocks (mock camera → detector → pin → avatar looks + speaks; push-to-talk voice Q&A). No device or server required.
+3. To use real backends, set `useMocks = false` on `AppBootstrap` and fill in `ServerConfig` / `LlmConfig` / `VoiceConfig`.
+4. Build for Quest 3 / Pico: Android, IL2CPP, ARM64, Vulkan, min SDK 32; enable the OpenXR loader + the relevant feature group under **Project Settings → XR Plug-in Management**.
 
-Avatar should be able to look at the user, gesture, and walk around the space. 
+## Avatars
 
-Possibly even looking at objects the user sees, looking to combine existing Unity Prefab scenes from different assets that already exist in a unified way. 
+RPM / Wolf3D GLB avatars live in `Assets/XRScan/Avatar/Models/` (glTFast imports `.glb` at edit-time). `CI_Brad` carries the full **15 Oculus visemes** on `Wolf3D_Head`; swap avatars via `AvatarLoadController.avatarPrefab`.
 
-Also looking to use a similar android camera system for all builds. The idea is to build this in a pluggable way so that it is compatible with AI API backend, including our companion, intelligence servers or open AI or Claude or garage or anything else.
+## Tests
 
-We already have an existing web implementation based on 3JS 
+`Assets/XRScan/Tests/EditMode` — run from **Window → General → Test Runner**. 10 tests cover bounding-box math, the spatial-pin store (dedup + events), and the detector contract.
 
-System components. 
-On premises server backend. Already completed.  
-Uses an open AI API interface. See example.
-RPM character puppet. 
-Body animation, mixer. Room walking controller. 
-Augmented reality controller. 
-Camera access vision system. 
-Voice prompting system. 
+---
 
-https://github.com/rikturnbull/xr-ai-text-to-speech 
-https://github.com/lucas-martinic/Unity-MetaXR-AI-Florence2 
-https://github.com/nigelhartm/MetaPCARoboflow 
-https://xraihack.notion.site/XRAI-Hack-in-Cologne-22ad7964cb7c81409748ca5322599341 
+# Original Design Brief
 
-TykeAI | AI powered autonomous virtual companions | Patreon 
+_(Preserved from the project's original planning notes.)_
 
-Passthrough Camera Access For Quest 3 & Quest 3S Now Available!
-https://github.com/Uralstech/UXR.QuestCamera/
+BUILD A CLONE OF GOOGLE ASTRA / META AI WITH LOCAL EMBODIED AGENTS.
 
-QUEST 3 PASSTHROUGH EXAMPLE 1 - YOLO V2 RUNNING LOCAL
-https://github.com/oculus-samples/Unity-PassthroughCameraApiSamples/blob/main/Media/ObjectDetectionSentis.gif
+- Existing web tech (RPM / Whisper / Piper): https://github.com/companionintelligence/CI-Embodied-Companion-Web
+- Get a passthrough-camera vision loop running, put an RPM avatar in the MR scene, make it talk with whisper/piper visemes like the web version.
+- The avatar should look at the user, gesture, and walk around the space, and look at objects the user sees.
+- Use a similar android camera system for all builds. Build in a pluggable way so it's compatible with any AI API backend — the Companion Intelligence servers, OpenAI, Claude, or anything else.
+- Build for Mobile, XREAL, and Quest 3.
 
-QUEST 3 PASSTHROUGH EXAMPLE 2 - OPENAI RUNNING IN THE CLOUD
-GitHub - xrdevrob/QuestCameraKit: QuestVisionKit is a collection of template and reference projects demonstrating how to use Meta Quest’s new Passthrough Camera API for advanced AR/VR vision, tracking, and shader effects.
+Reference projects: [QuestCameraKit / QuestVisionKit](https://github.com/xrdevrob/QuestCameraKit), [UXR.QuestCamera](https://github.com/Uralstech/UXR.QuestCamera/), [Unity-PassthroughCameraApiSamples](https://github.com/oculus-samples/Unity-PassthroughCameraApiSamples), [xr-ai-text-to-speech](https://github.com/rikturnbull/xr-ai-text-to-speech), [Unity-MetaXR-AI-Florence2](https://github.com/lucas-martinic/Unity-MetaXR-AI-Florence2).
 
-EXACT SPOT IT CALLS THE OPENAI API TO BE SWAPPED WITH OUR API
-https://github.com/xrdevrob/QuestCameraKit/blob/main/Unity-QuestVisionKit/Assets/Samples/5%20ImageLLM/Scripts/ImageOpenAIConnector.cs#L170
-
-COMP CODE FOR OUR API RUNNING IN WEB VERSION
-https://github.com/companionintelligence/CI-Embodied-Companion-Web/blob/main/index.js#L185 
-
-RPM UNITY SDK
-Ready Player Me Avatar and Character Creator | Game Toolkits | Unity Asset Store 
-Getting Started With Ready Player Me Avatars Integration in Unity 
-Get Started With Ready Player Me's Game-Ready Avatar Animation Library in Unity 
-
-XREAL SDK
-Download
-
-
-MULTIPLAYER BOILERPLATE
-https://discussions.unity.com/t/new-mr-multiplayer-tabletop-template-now-available/1595933 
-
-
-Similar Work 
-https://github.com/dilmerv/MRDrawingDemo 
-GitHub - TakashiYoshinaga/QuestArUcoMarkerTracking 
-https://github.com/VampyreVK/DrawMX 
-https://github.com/Aupuma/QuestImageTracking 
-https://github.com/hsp-iit/handCamera 
-https://github.com/CsRic/Augmented-Billiards 
-https://github.com/suibiweng/MRBrush/commit/8a28b4095ffddf421f6cc46afe7b2931840a246e 
-https://github.com/dilmerv/MRDrawingDemo 
-GitHub - doughtmw/AR-Ultrasound-Training 
-
-Project Astra - Google DeepMind 
-
-https://x.com/ehuanglu/status/1907046194238353419?s=46 
-https://x.com/ueda406/status/1904771581135774042 
-https://x.com/mechpil0t/status/1902879317803294773 
-
-
-
-
-
-
-hAI Friend MR with Vision (Meta Quest Passthrough Camera API) & GPT‑4.5 – Coming Soon!  
-StudyBuddy GPT4 o Multilingual Conversational AI with Animated Avatar student learning helper app 
-Demo - AI Talking Multilingual Banking / Insurance Kiosk  
-
-
-
+Spec doc: https://docs.google.com/document/d/1b7BSgvqpc9Hzb5csGv7V6cEOdlgvahUWlV_8k47lfqM/edit

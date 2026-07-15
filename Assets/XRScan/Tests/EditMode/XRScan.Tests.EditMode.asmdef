@@ -1,0 +1,29 @@
+{
+    "name": "XRScan.Tests.EditMode",
+    "rootNamespace": "XRScan.Tests.EditMode",
+    "references": [
+        "XRScan.Core",
+        "XRScan.Vision",
+        "XRScan.Mapping",
+        "XRScan.Mocks",
+        "XRScan.Agent",
+        "XRScan.Avatar",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
