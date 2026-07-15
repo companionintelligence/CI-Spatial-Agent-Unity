@@ -1,0 +1,16 @@
+{
+    "name": "XRScan.Voice",
+    "rootNamespace": "XRScan.Voice",
+    "references": [
+        "XRScan.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

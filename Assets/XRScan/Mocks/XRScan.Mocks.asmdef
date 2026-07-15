@@ -1,0 +1,16 @@
+{
+    "name": "XRScan.Mocks",
+    "rootNamespace": "XRScan.Mocks",
+    "references": [
+        "XRScan.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

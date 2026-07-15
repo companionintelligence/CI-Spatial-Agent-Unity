@@ -1,0 +1,19 @@
+{
+    "name": "XRScan.Export",
+    "rootNamespace": "XRScan.Export",
+    "references": [
+        "XRScan.Core",
+        "XRScan.Mapping",
+        "glTFast",
+        "glTFast.Export"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

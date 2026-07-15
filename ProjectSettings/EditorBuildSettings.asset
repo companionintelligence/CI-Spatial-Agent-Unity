@@ -6,14 +6,14 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Samples/XERAL XR Plugin/3.0.0-pre.4/Camera Features/RGBCameraAndCapture/RGBCameraAndCapture.unity
-    guid: 2d86868521ba3954d99c23196bc13949
-  - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
   m_configObjects:
+    Unity.XR.Oculus.Settings: {fileID: 11400000, guid: ca608adfed679134f9012453960a36b7, type: 2}
+    UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 4560306f2a2a35846b9c262a028358c6, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-    com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: f7720645dc1d44a4c8b37fb162ffb159, type: 2}
-    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 709944804759a41209c0b76bba64a0c7, type: 2}
-    com.unity.xr.management.xrealsettings: {fileID: 11400000, guid: 777ded8e202dc414d8d99f56bd73a27e, type: 2}
+    com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 73b36b6e2fe97ae4f8a132d237f6b3ae, type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 7d9ff4a0bd9855e419d019aa9bcd4794, type: 2}
+    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: ddd5ca97d78364444a264d7e3824a445, type: 2}
+    xr.sdk.mock-hmd.settings: {fileID: 11400000, guid: ac0027bd4ddfd87478086c07ca04974a, type: 2}
   m_UseUCBPForAssetBundles: 0
