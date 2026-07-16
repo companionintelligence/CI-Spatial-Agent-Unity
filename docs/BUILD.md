@@ -42,6 +42,30 @@ Unity.exe -quit -batchmode -projectPath . -executeMethod XRScan.EditorTools.XRSc
 - `horizonos.permission.HEADSET_CAMERA` — Quest Passthrough Camera API
 - `com.oculus.permission.USE_SCENE` — Meta scene understanding
 
+## Verifying a build
+
+The Quest APK has been validated end-to-end (IL2CPP + Gradle → ~55 MB installable APK). To check one yourself:
+
+```
+set BT=<editor>\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\build-tools\36.0.0
+%BT%\aapt2 dump badging     Builds\CISpatialCompanion-Quest.apk
+%BT%\aapt2 dump permissions Builds\CISpatialCompanion-Quest.apk
+```
+
+A correct Quest build reports:
+
+- `package: com.companionintelligence.xrscan`, `minSdkVersion:'32'`, `native-code: 'arm64-v8a'`
+- the injected permissions — `horizonos.permission.HEADSET_CAMERA`, `com.oculus.permission.USE_SCENE`, `android.permission.RECORD_AUDIO`
+- OpenXR wiring — `org.khronos.openxr.permission.OPENXR`, and Meta entries `com.oculus.feature.PASSTHROUGH` / `com.oculus.intent.category.VR` / `com.oculus.vr.focusaware`
+
+Install with `adb install -r Builds\CISpatialCompanion-Quest.apk`.
+
+### Known caveat: vendor native plugins are bundled for both headsets
+
+The OpenXR **feature** toggle controls runtime behaviour correctly, but Unity still packages the Android **native plugins** of every installed XR package. So the Quest APK also contains PICO (`libPICO_TOBAPI.so`, `libpvrcapturelib.so`, `com.pvr.tobactivate.permission.AUTH_CHECK`), ARCore, and MockHMD libraries — inert on Quest, but ~1.5 MB of dead weight plus one spurious permission.
+
+Harmless for development. Before a store release, strip them per-build via `PluginImporter.SetCompatibleWithPlatform` in `XRScanBuilder`, or remove the unused packages (`com.unity.xr.arcore`, `com.unity.xr.mock-hmd`) from the manifest.
+
 ## GUI Build Profiles (optional)
 
 If you prefer Unity's **Build Profiles** window (Quest / Pico entries): create two Android profiles there and set their *Scripting Define Symbols* to `XRSCAN_QUEST` and `XRSCAN_PICO` respectively. The build menu above does the same thing and is the recommended path for repeatable / CI builds.

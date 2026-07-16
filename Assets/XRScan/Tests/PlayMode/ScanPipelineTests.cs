@@ -51,6 +51,17 @@ namespace XRScan.Tests.PlayMode
 
             _pins = new GameObject("pins").AddComponent<SpatialPinManager>();
             _pins.transform.SetParent(_root.transform);
+
+            // Push the freshly-created collider into the physics scene. Without this the first
+            // raycast can miss in batch mode (headless CI) even though it hits in the Editor.
+            Physics.SyncTransforms();
+        }
+
+        /// <summary>Deterministically wait until the physics scene can be raycast against.</summary>
+        private static IEnumerator PhysicsReady()
+        {
+            Physics.SyncTransforms();
+            yield return new WaitForFixedUpdate();
         }
 
         [TearDown]
@@ -66,7 +77,7 @@ namespace XRScan.Tests.PlayMode
         [UnityTest]
         public IEnumerator ViewportCentre_RaycastsToWall_AtExpectedDepth()
         {
-            yield return null; // let the collider register with the physics scene
+            yield return PhysicsReady();
 
             bool hit = _raycaster.TryRaycastViewport(new Vector2(0.5f, 0.5f), out var point, out _, out var hitType);
 
@@ -88,7 +99,7 @@ namespace XRScan.Tests.PlayMode
             SetPrivate(scan, "pinManager", _pins);
             scan.Configure(cam, detector);
 
-            yield return null;
+            yield return PhysicsReady();
             scan.Scan();
             yield return null;
             yield return null; // async scan + placement
@@ -112,7 +123,7 @@ namespace XRScan.Tests.PlayMode
             SetPrivate(scan, "pinManager", _pins);
             scan.Configure(cam, detector);
 
-            yield return null;
+            yield return PhysicsReady();
             scan.Scan();
             yield return null; yield return null;
             scan.Scan();
