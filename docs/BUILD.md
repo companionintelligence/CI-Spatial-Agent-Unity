@@ -52,11 +52,13 @@ set BT=<editor>\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\build-tools\36.0.0
 %BT%\aapt2 dump permissions Builds\CISpatialCompanion-Quest.apk
 ```
 
-A correct Quest build reports:
+A correct **Quest** build reports:
 
 - `package: com.companionintelligence.xrscan`, `minSdkVersion:'32'`, `native-code: 'arm64-v8a'`
-- the injected permissions — `horizonos.permission.HEADSET_CAMERA`, `com.oculus.permission.USE_SCENE`, `android.permission.RECORD_AUDIO`
+- `android.permission.RECORD_AUDIO` (added by the post-processor) plus `horizonos.permission.HEADSET_CAMERA` and `com.oculus.permission.USE_SCENE` — these come from `com.unity.xr.meta-openxr` itself, gated on its AR features being enabled (`XRScanBuilder` turns on `ARCameraFeature.cameraImageSupportEnabled`, which is also what makes CPU passthrough-camera images available to the scanner)
 - OpenXR wiring — `org.khronos.openxr.permission.OPENXR`, and Meta entries `com.oculus.feature.PASSTHROUGH` / `com.oculus.intent.category.VR` / `com.oculus.vr.focusaware`
+
+A correct **Pico** build has `RECORD_AUDIO` + `com.pvr.tobactivate.permission.AUTH_CHECK` and `pvr.*` / `enable_scene_anchor` manifest entries, and **must not** contain the Meta-only permissions above. Verified: the two APKs' manifests differ exactly along these lines.
 
 Install with `adb install -r Builds\CISpatialCompanion-Quest.apk`.
 

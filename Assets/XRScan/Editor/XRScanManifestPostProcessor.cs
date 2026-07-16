@@ -8,11 +8,13 @@ using UnityEditor.Build;
 namespace XRScan.EditorTools
 {
     /// <summary>
-    /// Injects the runtime permissions the app needs into the generated Android manifest at build
-    /// time (merge-safe — never touches a hand-authored manifest). The microphone permission is
-    /// always needed for STT; the passthrough-camera and scene permissions are Meta-specific and are
-    /// only added to Quest builds (they'd be inert noise on a Pico APK), keyed off the platform
-    /// define that XRScanBuilder sets.
+    /// Adds the microphone permission (needed by speech-to-text) to the generated Android manifest
+    /// at build time — merge-safe, and it never touches a hand-authored manifest.
+    ///
+    /// Deliberately does NOT add the Meta permissions (horizonos.permission.HEADSET_CAMERA,
+    /// com.oculus.permission.USE_SCENE): com.unity.xr.meta-openxr already injects those itself,
+    /// correctly gated on its AR features being enabled. Adding them here duplicated the package's
+    /// work and leaked Meta-only permissions into the Pico APK.
     /// </summary>
     public class XRScanManifestPostProcessor : IPostGenerateGradleAndroidProject
     {
@@ -26,14 +28,6 @@ namespace XRScan.EditorTools
             if (!File.Exists(manifestPath)) return;
 
             var permissions = new List<string> { "android.permission.RECORD_AUDIO" }; // STT microphone
-
-            bool isQuest = PlayerSettings.GetScriptingDefineSymbols(NamedBuildTarget.Android)
-                .Contains("XRSCAN_QUEST");
-            if (isQuest)
-            {
-                permissions.Add("horizonos.permission.HEADSET_CAMERA"); // Quest Passthrough Camera API
-                permissions.Add("com.oculus.permission.USE_SCENE");     // Meta scene understanding
-            }
 
             var doc = new XmlDocument();
             doc.Load(manifestPath);

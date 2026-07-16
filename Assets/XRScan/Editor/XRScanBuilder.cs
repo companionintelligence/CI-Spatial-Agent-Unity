@@ -24,6 +24,22 @@ namespace XRScan.EditorTools
         [MenuItem("XRScan/Build/Pico (Android APK)", false, 1)]
         public static void BuildPico() => Build(PicoDefine, "CISpatialCompanion-Pico.apk");
 
+        /// <summary>Diagnostic: log every Android OpenXR feature and whether it is enabled.</summary>
+        [MenuItem("XRScan/Build/Dump OpenXR features", false, 21)]
+        public static void DumpOpenXRFeatures()
+        {
+            var settings = UnityEngine.XR.OpenXR.OpenXRSettings.GetSettingsForBuildTargetGroup(BuildTargetGroup.Android);
+            if (settings == null) { Debug.LogError("[DumpOpenXR] no Android OpenXR settings"); return; }
+
+            var sb = new System.Text.StringBuilder("[DumpOpenXR] Android features:\n");
+            foreach (var f in settings.GetFeatures())
+            {
+                if (f == null) continue;
+                sb.Append(f.enabled ? "  [x] " : "  [ ] ").Append(f.GetType().FullName).Append('\n');
+            }
+            Debug.Log(sb.ToString());
+        }
+
         [MenuItem("XRScan/Build/Configure Android settings (no build)", false, 20)]
         public static void ConfigureMenu()
         {
@@ -106,6 +122,22 @@ namespace XRScan.EditorTools
                     f.enabled = target;
                     UnityEditor.EditorUtility.SetDirty(f);
                     changed++;
+                }
+
+                // Quest passthrough scanning needs CPU camera images from the Meta AR camera
+                // feature. Turning this on is also what makes com.unity.xr.meta-openxr add the
+                // horizonos.permission.HEADSET_CAMERA permission for us. Reflection keeps this
+                // assembly free of a hard meta-openxr dependency.
+                if (target && n.EndsWith("ARCameraFeature", System.StringComparison.Ordinal))
+                {
+                    var prop = f.GetType().GetProperty("cameraImageSupportEnabled");
+                    if (prop != null && prop.CanWrite && prop.PropertyType == typeof(bool)
+                        && !(bool)prop.GetValue(f))
+                    {
+                        prop.SetValue(f, true);
+                        UnityEditor.EditorUtility.SetDirty(f);
+                        changed++;
+                    }
                 }
             }
 
