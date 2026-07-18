@@ -47,6 +47,12 @@ namespace XRScan.EditorTools
             "Assets/Settings/PC_Renderer.asset",     // default / Editor
         };
 
+        private static readonly string[] RpAssetPaths =
+        {
+            "Assets/Settings/Mobile_RPAsset.asset",
+            "Assets/Settings/PC_RPAsset.asset",
+        };
+
         [MenuItem("XRScan/Scene/Rebuild MR rig", false, 40)]
         public static void BuildMRRig()
         {
@@ -81,6 +87,13 @@ namespace XRScan.EditorTools
             cam.backgroundColor = new Color(0f, 0f, 0f, 0f); // alpha 0 -> passthrough composites through
             cam.nearClipPlane = 0.1f;
             cam.farClipPlane = 1000f;
+            // Passthrough needs the submitted eye buffer to keep its alpha. HDR + post-processing both
+            // force an intermediate blit that overwrites alpha to 1 (opaque) -> passthrough is hidden
+            // and the view goes black. Keep this camera LDR with no post; HDR is also disabled on the
+            // URP assets in EnsurePassthroughGraphics.
+            cam.allowHDR = false;
+            var camData = cam.GetUniversalAdditionalCameraData();
+            if (camData != null) camData.renderPostProcessing = false;
             camGO.AddComponent<AudioListener>();
 
             // Head pose from the HMD centre-eye, via the Input System TrackedPoseDriver.
@@ -127,6 +140,9 @@ namespace XRScan.EditorTools
 
             // --- 7b. Android must load OpenXR only (not ARCore) so Meta/Pico owns the AR session ---
             EnsureAndroidOpenXROnly();
+
+            // --- 7c. Disable HDR on the URP assets so the eye buffer keeps alpha for passthrough ---
+            EnsurePassthroughGraphics();
 
             // --- 8. Save ---
             EditorSceneManager.MarkSceneDirty(scene);
@@ -236,6 +252,39 @@ namespace XRScan.EditorTools
         private static string LoaderNames(XRManagerSettings manager) =>
             string.Join(", ", manager.activeLoaders.Select(l => l != null ? l.GetType().Name : "<null>"));
 
+        /// <summary>
+        /// Turns HDR off on the URP pipeline assets. Meta passthrough composites the physical world
+        /// behind the app's eye buffer using the buffer's alpha; with HDR on, URP renders to an HDR
+        /// intermediate and the resolve blit overwrites alpha to 1 (opaque), so passthrough is hidden
+        /// and the view is black. LDR lets URP render straight to the (alpha-preserving) XR swapchain.
+        /// Matches Unity's "Optimize graphics settings for Meta passthrough" (HDR off, post off,
+        /// intermediate texture Auto — the latter two are set on the camera/renderer). Idempotent.
+        /// </summary>
+        [MenuItem("XRScan/Scene/Disable HDR for passthrough (URP)", false, 43)]
+        public static void EnsurePassthroughGraphics()
+        {
+            foreach (var path in RpAssetPaths)
+            {
+                var rp = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(path);
+                if (rp == null)
+                {
+                    Debug.LogWarning($"[MRSceneBuilder] URP asset not found: {path} (skipped).");
+                    continue;
+                }
+                if (rp.supportsHDR)
+                {
+                    rp.supportsHDR = false;
+                    EditorUtility.SetDirty(rp);
+                    Debug.Log($"[MRSceneBuilder] Disabled HDR on {path}.");
+                }
+                else
+                {
+                    Debug.Log($"[MRSceneBuilder] HDR already off on {path}.");
+                }
+            }
+            AssetDatabase.SaveAssets();
+        }
+
         private static void SetObjectRef(Object target, string property, Object value)
         {
             if (target == null)
@@ -306,6 +355,14 @@ namespace XRScan.EditorTools
                 if (android != null && android.Manager != null)
                     sb.AppendLine($"  Android XR loaders=[{LoaderNames(android.Manager)}]");
             }
+
+            foreach (var path in RpAssetPaths)
+            {
+                var rp = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(path);
+                sb.AppendLine($"  URP {System.IO.Path.GetFileName(path)} supportsHDR={(rp != null ? rp.supportsHDR.ToString() : "<null>")}");
+            }
+            if (cam != null)
+                sb.AppendLine($"  Camera allowHDR={cam.allowHDR} postProcessing={(cam.GetUniversalAdditionalCameraData()?.renderPostProcessing)}");
 
             Debug.Log(sb.ToString());
         }
