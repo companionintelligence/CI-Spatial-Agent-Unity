@@ -65,6 +65,10 @@ namespace XRScan.EditorTools
             ConfigureAndroid();
             SetPlatformDefine(keepDefine);
             ConfigureOpenXRFeatures(keepDefine == QuestDefine);
+            // The other vendor's native libs (and MockHMD's) are excluded from the APK at packaging
+            // time by XRScanNativeLibExcluder, and PICO's stray permission by XRScanManifestPostProcessor
+            // — both keyed off the platform define set above. (PluginImporter flags don't work for
+            // plugins that live in read-only packages, so packaging-level exclusion is used instead.)
 
             var dir = Path.Combine(Directory.GetCurrentDirectory(), "Builds");
             Directory.CreateDirectory(dir);
@@ -157,5 +161,14 @@ namespace XRScan.EditorTools
             defines.Add(keep);
             PlayerSettings.SetScriptingDefineSymbols(nbt, string.Join(";", defines));
         }
+
+        /// <summary>
+        /// True when the current Android scripting defines target a Quest build (set by
+        /// <see cref="SetPlatformDefine"/> at the start of a build). The gradle/manifest
+        /// post-processors read this to strip the non-target vendor's native libs and permissions.
+        /// </summary>
+        internal static bool BuildingForQuest() =>
+            PlayerSettings.GetScriptingDefineSymbols(NamedBuildTarget.Android)
+                .Split(';').Any(d => d == QuestDefine);
     }
 }
