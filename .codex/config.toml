@@ -1,0 +1,14 @@
+# Codex project configuration
+# Trust this project in Codex so these settings take effect.
+
+[mcp_servers.openaiDeveloperDocs]
+url = "https://developers.openai.com/mcp"
+
+# Unity MCP server - path is created after first Unity import
+# Update if your Unity-MCP server path differs.
+[mcp_servers.unityMcp]
+url = "http://localhost:51360"
+
+[mcp_servers.blenderMcp]
+command = "python3"
+args = ["scripts/blender_mcp_bridge.py"]

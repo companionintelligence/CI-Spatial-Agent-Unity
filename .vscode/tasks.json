@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Unity Tests (All)",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/unity-tests.sh",
+      "problemMatcher": []
+    }
+  ]
+}
