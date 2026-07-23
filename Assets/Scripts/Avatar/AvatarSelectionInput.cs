@@ -193,4 +193,10 @@ public class AvatarSelectionInput : MonoBehaviour
             return false;
         return device.TryGetFeatureValue(usage, out var value) && value;
     }
+
+    public void SetShortcutEnabled(bool keyboard, bool xr)
+    {
+        enableKeyboard = keyboard;
+        enableXrInput = xr;
+    }
 }

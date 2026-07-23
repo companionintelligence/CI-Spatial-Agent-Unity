@@ -14,6 +14,7 @@ public class AvatarGalleryUI : MonoBehaviour
     AvatarBootstrap _bootstrap;
 
     static AvatarGalleryUI s_Instance;
+    public static bool SuppressOnGui;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Bootstrap()
@@ -86,6 +87,8 @@ public class AvatarGalleryUI : MonoBehaviour
 
     void OnGUI()
     {
+        if (SuppressOnGui)
+            return;
         if (_avatarPaths == null || _avatarPaths.Length == 0)
             return;
 
