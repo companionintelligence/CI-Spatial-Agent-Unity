@@ -37,12 +37,15 @@ public class ZeroShotDetector : MonoBehaviour
 
     [Header("Endpoint")]
     [SerializeField] string endpointUrl = "http://127.0.0.1:8000/detect";
+    [SerializeField] ZeroShotBackendConfig backendConfig;
 
     [Header("Input")]
     [SerializeField] ZeroShotCameraSource cameraSource;
     [SerializeField] string textPrompt = "a person";
     [Range(0f, 1f)] public float threshold = 0.3f;
     [Range(1, 200)] public int maxDetections = 50;
+    [SerializeField] bool autoSend = false;
+    [SerializeField] float requestInterval = 1.0f;
 
     [Header("UI")]
     [SerializeField] RawImage previewImage;
@@ -68,6 +71,10 @@ public class ZeroShotDetector : MonoBehaviour
         if (sendButton != null)
             sendButton.onClick.AddListener(SendRequest);
 
+        if (backendConfig == null)
+            backendConfig = Resources.Load<ZeroShotBackendConfig>("ZeroShotBackendConfig");
+        ApplyConfig(backendConfig);
+
         if ((anchorMode == AnchorMode.Spatial3D || anchorMode == AnchorMode.Both) && anchorPrefab == null)
         {
             anchorPrefab = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -75,11 +82,36 @@ public class ZeroShotDetector : MonoBehaviour
             anchorPrefab.transform.localScale = Vector3.one * 0.1f;
             anchorPrefab.SetActive(false);
         }
+
+        if (autoSend)
+            StartCoroutine(AutoSendLoop());
+    }
+
+    public void ApplyConfig(ZeroShotBackendConfig config)
+    {
+        if (config == null)
+            return;
+        backendConfig = config;
+        endpointUrl = backendConfig.endpointUrl;
+        if (!string.IsNullOrEmpty(backendConfig.defaultPrompt))
+            textPrompt = backendConfig.defaultPrompt;
+        threshold = backendConfig.defaultThreshold;
+        maxDetections = backendConfig.defaultMaxDetections;
     }
 
     public void SendRequest()
     {
         StartCoroutine(SendRequestRoutine());
+    }
+
+    IEnumerator AutoSendLoop()
+    {
+        var wait = new WaitForSeconds(Mathf.Max(0.1f, requestInterval));
+        while (autoSend)
+        {
+            yield return SendRequestRoutine();
+            yield return wait;
+        }
     }
 
     IEnumerator SendRequestRoutine()
@@ -111,7 +143,14 @@ public class ZeroShotDetector : MonoBehaviour
         {
             uwr.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
             uwr.downloadHandler = new DownloadHandlerBuffer();
-            uwr.SetRequestHeader("Content-Type", "application/json");
+            var contentType = backendConfig != null && !string.IsNullOrEmpty(backendConfig.contentType)
+                ? backendConfig.contentType
+                : "application/json";
+            uwr.SetRequestHeader("Content-Type", contentType);
+            if (backendConfig != null && !string.IsNullOrEmpty(backendConfig.acceptHeader))
+                uwr.SetRequestHeader("Accept", backendConfig.acceptHeader);
+            if (backendConfig != null && backendConfig.useBearerAuth && !string.IsNullOrEmpty(backendConfig.apiKey))
+                uwr.SetRequestHeader("Authorization", $"Bearer {backendConfig.apiKey}");
 
             SetStatus("Sending request...");
             yield return uwr.SendWebRequest();

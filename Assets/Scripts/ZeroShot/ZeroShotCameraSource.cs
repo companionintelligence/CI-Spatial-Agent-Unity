@@ -8,12 +8,14 @@ public class ZeroShotCameraSource : MonoBehaviour
     [SerializeField] string deviceName = "";
     [SerializeField] Vector2Int requestedResolution = new Vector2Int(1280, 720);
     [SerializeField] bool autoStart = true;
+    [SerializeField] bool useOverrideTexture = false;
+    [SerializeField] Texture overrideTexture;
 
     [Header("Preview")]
     [SerializeField] RawImage previewImage;
 
     public WebCamTexture WebCamTexture { get; private set; }
-    public Texture CurrentTexture => WebCamTexture;
+    public Texture CurrentTexture => useOverrideTexture && overrideTexture != null ? overrideTexture : WebCamTexture;
 
     void Start()
     {
@@ -23,6 +25,14 @@ public class ZeroShotCameraSource : MonoBehaviour
 
     public void StartCamera()
     {
+        if (useOverrideTexture && overrideTexture != null)
+        {
+            if (previewImage != null)
+                previewImage.texture = overrideTexture;
+            Debug.Log("[ZeroShot] Using override texture for preview.");
+            return;
+        }
+
         if (WebCamTexture != null)
             return;
 
