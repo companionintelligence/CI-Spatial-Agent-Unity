@@ -14,7 +14,14 @@ namespace XRScan.Avatar
         [SerializeField] private uLipSync.Profile profile;
         [SerializeField] private SkinnedMeshRenderer faceRenderer;
         [SerializeField] private SkinnedMeshRenderer teethRenderer;
-        [SerializeField, Range(0f, 2f)] private float maxWeight = 1.2f;
+        // RPM / Oculus viseme blendshapes are authored for 0–100%. uLipSync applies
+        // weight = ratio * maxWeight * volume * 100, so anything above 1.0 over-extrudes the mesh
+        // and it distorts — keep this at (or below) 1.0.
+        [SerializeField, Range(0f, 1f)] private float maxWeight = 1.0f;
+        // Softens transitions: blend the visemes by their phoneme ratios rather than snapping to the
+        // single loudest one (which looks robotic), and damp the per-frame weight changes.
+        [SerializeField] private bool blendVisemes = true;
+        [SerializeField, Range(0f, 0.3f)] private float smoothness = 0.08f;
 
         // uLipSync profile phoneme -> RPM Oculus viseme blendshape name.
         private static readonly (string phoneme, string viseme)[] VisemeMap =
@@ -43,6 +50,8 @@ namespace XRScan.Avatar
                 return;
             }
 
+            maxWeight = Mathf.Clamp01(maxWeight); // guard against a stale >1 serialized value
+
             _lipSync = GetComponent<uLipSync.uLipSync>();
             if (_lipSync == null) _lipSync = gameObject.AddComponent<uLipSync.uLipSync>();
             _lipSync.profile = profile;
@@ -62,6 +71,8 @@ namespace XRScan.Avatar
             if (bs == null) bs = smr.gameObject.AddComponent<uLipSync.uLipSyncBlendShape>();
             bs.skinnedMeshRenderer = smr;
             bs.maxBlendShapeValue = 100f;
+            bs.usePhonemeBlend = blendVisemes;
+            bs.smoothness = smoothness;
             bs.blendShapes.Clear();
 
             foreach (var (phoneme, viseme) in VisemeMap)
