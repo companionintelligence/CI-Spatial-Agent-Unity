@@ -81,3 +81,25 @@ BUILD A CLONE OF GOOGLE ASTRA / META AI WITH LOCAL EMBODIED AGENTS.
 Reference projects: [QuestCameraKit / QuestVisionKit](https://github.com/xrdevrob/QuestCameraKit), [UXR.QuestCamera](https://github.com/Uralstech/UXR.QuestCamera/), [Unity-PassthroughCameraApiSamples](https://github.com/oculus-samples/Unity-PassthroughCameraApiSamples), [xr-ai-text-to-speech](https://github.com/rikturnbull/xr-ai-text-to-speech), [Unity-MetaXR-AI-Florence2](https://github.com/lucas-martinic/Unity-MetaXR-AI-Florence2).
 
 Spec doc: https://docs.google.com/document/d/1b7BSgvqpc9Hzb5csGv7V6cEOdlgvahUWlV_8k47lfqM/edit
+
+<!-- companion-hub-readme-deep-review -->
+
+## Editor and target requirements
+
+| Area | Requirement or state |
+|---|---|
+| Unity project | Open with the Unity version specified in `ProjectSettings/ProjectVersion.txt` |
+| Target | Mixed-reality runtime; the README describes Quest and XREAL use |
+| Intelligence | Pluggable backend seam; configure the selected local or remote service |
+| Validation | Run the documented test suite; device-specific behavior still needs target hardware validation |
+
+```mermaid
+flowchart LR
+  Device[XR device and input] --> Unity[Unity companion runtime]
+  Unity --> UI[Avatar and spatial UI]
+  Unity --> Intelligence[Configured intelligence provider]
+  Intelligence --> Unity
+```
+
+The project is a rebuild with an explicitly documented status. Treat the original design brief as rationale, and the current status/getting-started sections as implementation guidance.
+
