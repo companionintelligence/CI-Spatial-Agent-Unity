@@ -1,6 +1,10 @@
 Private and Confidential
 
-# CI Spatial Companion
+<h1 align="center">CI Spatial Companion</h1>
+
+<p align="center"><strong>Spatial Companion Agent Unity - Xreal OpenXR</strong></p>
+
+<p align="center"><a href="#getting-started">Get started</a></p>
 
 An embodied mixed-reality companion for **Meta Quest 3** and **Pico** — a spatial agent that scans the room, drops world-anchored pins on detected objects, and answers questions about them through a **Ready Player Me avatar** that looks at you, speaks with viseme lip-sync, and (WIP) walks the space.
 
