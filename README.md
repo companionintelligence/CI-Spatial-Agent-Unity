@@ -1,6 +1,19 @@
 Private and Confidential
 
-# CI Spatial Companion
+<h1 align="center">CI Spatial Companion</h1>
+
+<p align="center"><strong>Spatial Companion Agent Unity - Xreal OpenXR</strong></p>
+
+[![release](https://img.shields.io/badge/release-not%20published-757575?style=flat-square)](https://github.com/companionintelligence/CI-Spatial-Agent-Unity/releases)
+[![platform](https://img.shields.io/badge/platform-Quest%203%20%C2%B7%20Unity-0a6358?style=flat-square)](https://github.com/companionintelligence/CI-Spatial-Agent-Unity)
+[![License](https://img.shields.io/badge/license-Commercial%20Standard-8a5a00?style=flat-square)](LICENSE.md)
+[![Discord](https://img.shields.io/badge/chat-Discord-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.com/invite/yQp9hwpzAa)
+
+<p align="center"><a href="#getting-started">Get started</a> · <a href="https://docs.ci.computer/docs/reference/open-source-systems">Systems map</a> · <a href="README.md#architecture">Documentation</a></p>
+
+<p align="center">
+  <a href="#getting-started"><img src="https://img.shields.io/badge/Get%20started-Get%20started-0a6358?style=for-the-badge&logo=unity&logoColor=white" alt="Get started" height="30"></a>
+</p>
 
 An embodied mixed-reality companion for **Meta Quest 3** and **Pico** — a spatial agent that scans the room, drops world-anchored pins on detected objects, and answers questions about them through a **Ready Player Me avatar** that looks at you, speaks with viseme lip-sync, and (WIP) walks the space.
 
@@ -15,6 +28,30 @@ An embodied mixed-reality companion for **Meta Quest 3** and **Pico** — a spat
 ## Why the rebuild
 
 The previous prototype targeted a since-broken toolchain. The full Meta XR SDK, UnityGLTF, and NaughtyAttributes do **not** compile on Unity 6.4/6.5 (a hard `CS0619` on `Object.GetInstanceID()`), and those are non-LTS releases. This rebuild targets **Unity 6.3 LTS** (supported to Dec 2027, validated by every vendor SDK in the stack) and uses the **OpenXR** path — `com.unity.xr.meta-openxr` for Quest and the PICO OpenXR SDK for Pico — so a single codebase produces one cross-vendor APK.
+
+
+## Features
+
+| Feature | What it provides |
+|---|---|
+| **Room understanding** | Combine room scan data and spatially anchored object pins. |
+| **Perception seam** | Route image and conversation requests through configured services. |
+| **Embodied companion** | Render an avatar with spatial context in Unity. |
+| **Navigation status** | Walking and autonomous navigation remain work in progress. |
+
+## How it fits together
+
+Unity owns room capture, anchors and avatar rendering; perception and conversation use configured services. Navigation remains explicitly in progress.
+
+```mermaid
+flowchart LR
+  Room[Quest room scan and anchors] --> Pins[Spatial object pins]
+  Pins --> Context[Spatial context]
+  Input[Voice or text] --> Agent[Configured agent backend]
+  Context --> Agent
+  Agent --> Avatar[Unity companion avatar]
+  Agent -. navigation work in progress .-> Nav[Movement controller]
+```
 
 ## Architecture
 
@@ -77,3 +114,25 @@ BUILD A CLONE OF GOOGLE ASTRA / META AI WITH LOCAL EMBODIED AGENTS.
 Reference projects: [QuestCameraKit / QuestVisionKit](https://github.com/xrdevrob/QuestCameraKit), [UXR.QuestCamera](https://github.com/Uralstech/UXR.QuestCamera/), [Unity-PassthroughCameraApiSamples](https://github.com/oculus-samples/Unity-PassthroughCameraApiSamples), [xr-ai-text-to-speech](https://github.com/rikturnbull/xr-ai-text-to-speech), [Unity-MetaXR-AI-Florence2](https://github.com/lucas-martinic/Unity-MetaXR-AI-Florence2).
 
 Spec doc: https://docs.google.com/document/d/1b7BSgvqpc9Hzb5csGv7V6cEOdlgvahUWlV_8k47lfqM/edit
+
+<!-- companion-hub-readme-deep-review -->
+
+## Editor and target requirements
+
+| Area | Requirement or state |
+|---|---|
+| Unity project | Open with the Unity version specified in `ProjectSettings/ProjectVersion.txt` |
+| Target | Mixed-reality runtime; the README describes Quest and XREAL use |
+| Intelligence | Pluggable backend seam; configure the selected local or remote service |
+| Validation | Run the documented test suite; device-specific behavior still needs target hardware validation |
+
+```mermaid
+flowchart LR
+  Device[XR device and input] --> Unity[Unity companion runtime]
+  Unity --> UI[Avatar and spatial UI]
+  Unity --> Intelligence[Configured intelligence provider]
+  Intelligence --> Unity
+```
+
+The project is a rebuild with an explicitly documented status. Treat the original design brief as rationale, and the current status/getting-started sections as implementation guidance.
+
