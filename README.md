@@ -1,12 +1,10 @@
-Private and Confidential
-
 <h1 align="center">CI Spatial Companion</h1>
 
 <p align="center"><strong>Spatial Companion Agent Unity - Xreal OpenXR</strong></p>
 
 [![release](https://img.shields.io/badge/release-not%20published-757575?style=flat-square)](https://github.com/companionintelligence/CI-Spatial-Agent-Unity/releases)
 [![platform](https://img.shields.io/badge/platform-Quest%203%20%C2%B7%20Unity-0a6358?style=flat-square)](https://github.com/companionintelligence/CI-Spatial-Agent-Unity)
-[![License](https://img.shields.io/badge/license-Commercial%20Standard-8a5a00?style=flat-square)](LICENSE.md)
+[![License](https://img.shields.io/badge/license-PolyForm%20NC%201.0.0-0a6358?style=flat-square)](LICENSE)
 [![Discord](https://img.shields.io/badge/chat-Discord-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.com/invite/yQp9hwpzAa)
 
 <p align="center"><a href="#getting-started">Get started</a> · <a href="https://docs.ci.computer/docs/reference/open-source-systems">Systems map</a> · <a href="README.md#architecture">Documentation</a></p>
@@ -136,3 +134,7 @@ flowchart LR
 
 The project is a rebuild with an explicitly documented status. Treat the original design brief as rationale, and the current status/getting-started sections as implementation guidance.
 
+
+## License
+
+[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0) — free for noncommercial use and research. See [LICENSE](LICENSE) and the [License FAQ](docs/License-FAQ.md) for what that means in practice.
