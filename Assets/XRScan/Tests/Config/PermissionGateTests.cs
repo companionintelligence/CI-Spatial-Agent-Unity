@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using XRScan.Core;
+using XRScan.Mocks;
 using XRScan.Settings;
 
 namespace XRScan.Tests.Config
@@ -10,7 +11,8 @@ namespace XRScan.Tests.Config
     {
         private OverrideSandbox _sandbox;
         private GameObject _go;
-        private FakeSpeechToText _inner;
+        private MockStt _inner; // a runtime MonoBehaviour standing in for CloudWhisperStt (never touches a microphone)
+        private int _recordingsStarted;
         private RuntimePermissions _permissions;
         private FakePermissionService _service;
         private PermissionGatedSpeechToText _gate;
@@ -22,12 +24,17 @@ namespace XRScan.Tests.Config
         {
             _sandbox = new OverrideSandbox();
             _go = new GameObject("stt-gate-test");
-            _inner = _go.AddComponent<FakeSpeechToText>();
+            _inner = _go.AddComponent<MockStt>();
+            _recordingsStarted = 0;
+            _inner.OnListeningStarted.AddListener(() => _recordingsStarted++);
+
             _permissions = _go.AddComponent<RuntimePermissions>();
             _service = new FakePermissionService();
             _permissions.UseService(_service);
+
             _voice = ScriptableObject.CreateInstance<VoiceConfig>();
             _voice.selfHostedBaseUrl = "https://hub.example.lan";
+
             _gate = _go.AddComponent<PermissionGatedSpeechToText>();
             _gate.Configure(_inner, _permissions, _voice);
             _errors.Clear();
@@ -46,7 +53,7 @@ namespace XRScan.Tests.Config
         [Test]
         public void Initialize_DoesNotTouchTheRecognizerBeforeTheMicrophoneIsGranted()
         {
-            Assert.AreEqual(0, _inner.InitializeCalls);
+            Assert.IsFalse(_inner.IsInitialized);
             Assert.IsEmpty(_service.Requests);
         }
 
@@ -55,13 +62,14 @@ namespace XRScan.Tests.Config
         {
             _gate.StartListening();
             CollectionAssert.AreEqual(new[] { AppPermissions.Microphone }, _service.Requests);
-            Assert.AreEqual(0, _inner.StartCalls);
+            Assert.AreEqual(0, _recordingsStarted);
             Assert.IsTrue(_gate.IsProcessing);
 
             _service.Answer(AppPermissions.Microphone, PermissionState.Granted);
-            Assert.AreEqual(1, _inner.InitializeCalls);
-            Assert.AreEqual(1, _inner.StartCalls);
+            Assert.IsTrue(_inner.IsInitialized);
+            Assert.AreEqual(1, _recordingsStarted);
             Assert.IsTrue(_gate.IsListening);
+            Assert.IsFalse(_gate.IsProcessing);
         }
 
         [Test]
@@ -70,12 +78,24 @@ namespace XRScan.Tests.Config
             _gate.StartListening();
             _service.Answer(AppPermissions.Microphone, PermissionState.Denied);
 
-            Assert.AreEqual(0, _inner.StartCalls);
+            Assert.AreEqual(0, _recordingsStarted);
             Assert.AreEqual(1, _errors.Count);
             StringAssert.Contains("Microphone", _errors[0]);
 
             _gate.StartListening(); // a plain denial is asked again on the next press
             Assert.AreEqual(2, _service.Requests.Count);
+        }
+
+        [Test]
+        public void BlockedMicrophone_IsNotPromptedAgain()
+        {
+            _gate.StartListening();
+            _service.Answer(AppPermissions.Microphone, PermissionState.DeniedPermanently);
+            _gate.StartListening();
+
+            Assert.AreEqual(1, _service.Requests.Count);
+            Assert.AreEqual(0, _recordingsStarted);
+            StringAssert.Contains("Settings", _errors[_errors.Count - 1]);
         }
 
         [Test]
@@ -85,7 +105,7 @@ namespace XRScan.Tests.Config
             _gate.StartListening();
 
             Assert.IsEmpty(_service.Requests);
-            Assert.AreEqual(0, _inner.StartCalls);
+            Assert.AreEqual(0, _recordingsStarted);
             Assert.AreEqual(1, _errors.Count);
             StringAssert.Contains("unavailable", _errors[0]);
         }
@@ -95,7 +115,7 @@ namespace XRScan.Tests.Config
         {
             _voice.provider = SpeechProvider.Cloud;
             _gate.StartListening();
-            Assert.AreEqual(0, _inner.StartCalls);
+            Assert.AreEqual(0, _recordingsStarted);
             Assert.IsEmpty(_service.Requests);
         }
     }
