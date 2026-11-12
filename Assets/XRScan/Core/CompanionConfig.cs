@@ -21,9 +21,10 @@ namespace XRScan.Core
 
         [Header("Development builds only")]
         [Tooltip("LAN hosts (IP or local name, e.g. a LAN Ollama) that may use plain http:// in DEVELOPMENT builds. " +
-                 "Release builds ignore this list and allow https only. The Android network security config is generated " +
-                 "from this list for development builds only. Entries that are not on the local network are rejected. " +
-                 "Deployment-specific: do not commit personal host names.")]
+                 "Release builds ignore this list and allow https only. Entries that are not on the local network are rejected. " +
+                 "The backends (UnityWebRequest) also need Player Settings > 'Allow downloads over HTTP' set to 'Allowed in " +
+                 "development builds' to reach these hosts. The Android network security config mirrors this list for " +
+                 "Java-level networking only. Deployment-specific: do not commit personal host names.")]
         public List<string> devCleartextHosts = new List<string>();
 
         [Header("In-headset settings panel")]

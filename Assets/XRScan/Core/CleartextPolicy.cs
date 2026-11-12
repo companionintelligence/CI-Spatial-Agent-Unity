@@ -7,7 +7,7 @@ using UnityEngine;
 namespace XRScan.Core
 {
     /// <summary>
-    /// Transport policy shared by every backend endpoint (LLM, speech, CV server):
+    /// Transport policy shared by every backend endpoint (LLM, speech, CV server, glTF sync):
     /// <list type="bullet">
     /// <item>https:// is always allowed.</item>
     /// <item>Plain http:// is allowed only in <b>development</b> builds (and the Editor), only for
@@ -15,8 +15,17 @@ namespace XRScan.Core
     /// host is on the local network (loopback, RFC 1918 private, link-local, IPv6 unique-local, or a
     /// single-label / .local / .lan / .home.arpa / .internal name). Release builds never allow it.</item>
     /// </list>
-    /// The same allowlist generates the Android network security config at build time (development
-    /// builds only), so the app-level check and the platform-level check agree.
+    /// <para>This is the only per-host gate on the app's HTTP traffic. The backends send through
+    /// UnityWebRequest, which on Android runs on Unity's native libcurl and ignores the Android network
+    /// security config. The only other check on those requests is Unity's project-wide Player Settings &gt;
+    /// "Allow downloads over HTTP", which the player enforces natively. A build guard (UnityHttpBuildGuard)
+    /// fails release builds while that setting is "Always allowed". Development builds need "Allowed in
+    /// development builds" to reach an allow-listed http host at all. So every request URL must come from this
+    /// class, through <see cref="LlmConfig"/>, <see cref="VoiceConfig"/> or <see cref="ServerConfig"/>
+    /// (TransportGateTests lists the call sites).</para>
+    /// <para>The network security config generated at build time mirrors the same allowlist for Java-level
+    /// networking only (Android plugins, WebView, VideoPlayer URL playback), as defense in depth. It does not
+    /// govern UnityWebRequest.</para>
     /// </summary>
     public static class CleartextPolicy
     {
