@@ -37,6 +37,30 @@ Unity.exe -batchmode -projectPath . -buildTarget Android -executeMethod XRScan.E
 
 (`BuildPico` for the Pico APK.) Do **not** pass `-quit`: removing the packages needs a script reload that `-quit` would cut short (the builder refuses to start and exits 1 if it sees it). The builder exits by itself after restoring the project files: 0 = built; 1 = the build failed, threw, or wrote no fresh APK. If the editor is killed mid-build, the next start of the project restores the files. CI builds the Quest APK this way on every pull request and checks its contents; see [CI.md](CI.md).
 
+## Release signing and version code
+
+`XRScanBuilder` never stores signing material in the project. It reads it from the environment of the editor process for each build (`AndroidReleaseSettings` in `Assets/XRScan/Settings/Editor`):
+
+| Variable | Used for |
+|---|---|
+| `KEYSTORE_PATH` | path of the release keystore (`.jks` / `.keystore`) |
+| `KEYSTORE_PASS` | keystore password |
+| `KEY_ALIAS` | alias of the release key |
+| `KEY_PASS` | password of that key |
+| `VERSION_CODE` | optional Android versionCode, a whole number from 1 to 2100000000 |
+
+- **Signing.** When all four signing variables are set, the APK is signed with that key; otherwise with Unity's debug key, which is fine for sideloading but not for a store upload. If only some of them are set, the build warns and uses the debug key.
+- **`-release`.** Add it to the command line of a store build. The builder then exits with code 1, before it changes anything in the project, when any of the four variables is missing or `KEYSTORE_PATH` is not a file, instead of falling back to the debug key.
+- **versionCode.** `VERSION_CODE` when set, otherwise `MAJOR*1000000 + MINOR*1000 + PATCH` of Player Settings → Version (`MAJOR.MINOR.PATCH`, optionally followed by a `-suffix`, with MINOR and PATCH below 1000), so `0.1.0` gives 1000. A version that does not fit fails the build. Each store upload needs a higher versionCode than the last.
+- The builder applies these for the build only and puts the previous Player Settings back afterwards, byte for byte, so no keystore path, alias or versionCode stays in `ProjectSettings.asset`; the passwords are never written there. While a release build runs the file does hold the keystore path and alias, so revert it if such a build is killed. Unity also writes the signing values into the Gradle project it generates under `Library/Bee`, so treat that `Library` as sensitive after a release build on a shared machine.
+- Create the keystore yourself (for example with the JDK's `keytool -genkeypair`), back it up, and keep it and its passwords out of the repository: a store app can only be updated with the key it was first signed with.
+
+```
+Unity.exe -batchmode -projectPath . -buildTarget Android -executeMethod XRScan.EditorTools.XRScanBuilder.BuildQuest -release
+```
+
+Set the four variables in that process's environment from a password manager or CI secrets rather than typing the passwords on a command line. In CI, decode the keystore from a secret into the runner's temporary directory and pass the variables to the build step only. The Quest APK workflow does neither today, so CI's APKs are debug-signed.
+
 ## What's preconfigured
 
 `XRScanBuilder.ConfigureAndroid()` (run automatically before every build) sets:
@@ -47,7 +71,7 @@ Unity.exe -batchmode -projectPath . -buildTarget Android -executeMethod XRScan.E
 - **Target SDK** API 34. The Meta Horizon Store requires exactly 34 for apps created since March 2026, so the target is pinned instead of *Automatic* (which would pick the highest installed platform, 36 with this editor). The Pico APK uses the same value.
 - **Color space** Linear · **Stereo rendering** Single Pass Instanced
 
-From Player Settings: **App id** `com.companionintelligence.xrscan`, and no custom keystore, so APKs are signed with Unity's debug key. That is fine for sideloading but not for a store upload.
+From Player Settings: **App id** `com.companionintelligence.xrscan` and **Version** `0.1.0`. No keystore is configured there: signing and the versionCode come from the environment at build time (see [Release signing and version code](#release-signing-and-version-code)).
 
 **XR Plug-in Management** (Project Settings): Android uses the OpenXR loader only. Both vendors' OpenXR feature groups are installed, and the build turns on one of them as described above. For Quest builds, `XRScanBuilder` also enables two options of the Meta AR camera feature (**Meta Quest: Camera (Passthrough)**): CPU camera images (`cameraImageSupportEnabled`), which the scanner needs, and **Passthrough Pre Splash Screen** (`passthroughPreSplashScreen`), so the app starts in passthrough instead of the headset's opaque loading screen. The committed OpenXR settings have both on.
 

@@ -20,6 +20,9 @@ namespace XRScan.EditorTools
     /// features and leaves them modified until the next Quest build — don't commit that state.</para>
     /// <para>In batch mode (<c>-executeMethod</c>, without <c>-quit</c>) the editor exits when the build
     /// ends: 0 = built, 1 = failed, threw, or wrote no fresh APK.</para>
+    /// <para>Signing and versionCode come from the environment (<see cref="AndroidReleaseSettings"/>): the
+    /// release keystore only when <c>KEYSTORE_PATH</c>, <c>KEYSTORE_PASS</c>, <c>KEY_ALIAS</c> and
+    /// <c>KEY_PASS</c> are set, else Unity's debug key; <c>-release</c> makes a build without them fail.</para>
     /// </summary>
     public static class XRScanBuilder
     {
@@ -61,6 +64,13 @@ namespace XRScan.EditorTools
         {
             try
             {
+                // Fail on missing release settings before XRScanBuildPackages changes the project.
+                if (!CheckReleaseSettings(out _, out _))
+                {
+                    if (Application.isBatchMode)
+                        EditorApplication.Exit(1);
+                    return;
+                }
                 XRScanBuildPackages.Build(pico);
             }
             catch (Exception e)
@@ -126,6 +136,8 @@ namespace XRScan.EditorTools
         /// </summary>
         internal static bool BuildNow(bool pico)
         {
+            if (!CheckReleaseSettings(out var versionCode, out var signing))
+                return false;
             var apkName = pico ? PicoApk : QuestApk;
             ConfigureAndroid();
             SetPlatformDefine(pico ? PicoDefine : QuestDefine);
@@ -139,6 +151,20 @@ namespace XRScan.EditorTools
             //    PICO's Java plugins) from the Gradle project,
             //  - XRScanManifestPostProcessor strips PICO's stray permission from Quest builds.
 
+            var restoreReleaseSettings = ApplyReleaseSettings(versionCode, signing);
+            try
+            {
+                return BuildPlayer(apkName);
+            }
+            finally
+            {
+                restoreReleaseSettings();
+            }
+        }
+
+        /// <summary>Builds the app scene to <paramref name="apkName"/> in <see cref="OutputDirectory"/>.</summary>
+        private static bool BuildPlayer(string apkName)
+        {
             var dir = OutputDirectory();
             Directory.CreateDirectory(dir);
             var apkPath = Path.Combine(dir, apkName);
@@ -180,6 +206,120 @@ namespace XRScan.EditorTools
 
             Debug.LogError($"[XRScanBuilder] {apkName} build {s.result}{(apkWritten ? "" : ", no APK written")}, {s.totalErrors} error(s){errorList}");
             return false;
+        }
+
+        /// <summary>
+        /// Resolves the build's versionCode and release signing from the environment and logs why a build
+        /// cannot go ahead: an unusable version, <c>-release</c> without all four signing variables, or a
+        /// <c>KEYSTORE_PATH</c> that is not a file. Never logs the values themselves.
+        /// </summary>
+        private static bool CheckReleaseSettings(out int versionCode, out AndroidReleaseSettings.Signing signing)
+        {
+            signing = null;
+            if (!AndroidReleaseSettings.TryGetVersionCode(PlayerSettings.bundleVersion, Environment.GetEnvironmentVariable,
+                                                          out versionCode, out var versionError))
+            {
+                Debug.LogError("[XRScanBuilder] " + versionError);
+                return false;
+            }
+
+            bool release = AndroidReleaseSettings.HasFlag(Environment.GetCommandLineArgs(), AndroidReleaseSettings.ReleaseFlag);
+            signing = AndroidReleaseSettings.ReadSigning(Environment.GetEnvironmentVariable, out var missing);
+            if (signing == null)
+            {
+                var names = string.Join(", ", missing);
+                if (release)
+                {
+                    Debug.LogError($"[XRScanBuilder] {AndroidReleaseSettings.ReleaseFlag} needs the release keystore, but {names} " +
+                                   $"{(missing.Length == 1 ? "is" : "are")} not set. Set {string.Join(", ", AndroidReleaseSettings.SigningVariables)} " +
+                                   "in the environment (see docs/BUILD.md).");
+                    return false;
+                }
+                if (missing.Length < AndroidReleaseSettings.SigningVariables.Length)
+                    Debug.LogWarning($"[XRScanBuilder] {names} not set, so the release keystore is not used; signing with Unity's debug key.");
+                return true;
+            }
+
+            if (!File.Exists(signing.KeystorePath))
+            {
+                Debug.LogError($"[XRScanBuilder] {AndroidReleaseSettings.KeystorePathVariable} does not point to a file.");
+                signing = null;
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Applies the versionCode and signing for this build and returns the action that puts the previous
+        /// Player Settings back, so neither the keystore path and alias nor the build's versionCode end up in
+        /// ProjectSettings.asset. The passwords only ever live in memory. A debug-signed build leaves the
+        /// keystore settings alone.
+        /// </summary>
+        private static Action ApplyReleaseSettings(int versionCode, AndroidReleaseSettings.Signing signing)
+        {
+            var previousVersionCode = PlayerSettings.Android.bundleVersionCode;
+            var previousUseCustomKeystore = PlayerSettings.Android.useCustomKeystore;
+            Action restoreKeystore = () => { };
+
+            PlayerSettings.Android.bundleVersionCode = versionCode;
+            PlayerSettings.Android.useCustomKeystore = signing != null;
+            if (signing != null)
+            {
+                restoreKeystore = UseKeystore(signing);
+                Debug.Log($"[XRScanBuilder] Signing with the {signing}; versionCode {versionCode}.");
+            }
+            else
+            {
+                Debug.Log($"[XRScanBuilder] No release keystore in the environment: signing with Unity's debug key; versionCode {versionCode}.");
+            }
+
+            return () =>
+            {
+                restoreKeystore();
+                PlayerSettings.Android.useCustomKeystore = previousUseCustomKeystore;
+                PlayerSettings.Android.bundleVersionCode = previousVersionCode;
+                AssetDatabase.SaveAssets();
+            };
+        }
+
+        /// <summary>
+        /// Points Player Settings at the release keystore and returns the action that puts the previous
+        /// keystore settings back. The keystore and alias names are restored through the serialized
+        /// PlayerSettings object, because the keystoreName setter stores an empty name as "{inproject}: ",
+        /// which would leave ProjectSettings.asset modified.
+        /// </summary>
+        private static Action UseKeystore(AndroidReleaseSettings.Signing signing)
+        {
+            var settings = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset")
+                .FirstOrDefault(o => o is PlayerSettings);
+            var serialized = settings != null ? new SerializedObject(settings) : null;
+            var keystoreName = serialized?.FindProperty("AndroidKeystoreName")?.stringValue;
+            var keyaliasName = serialized?.FindProperty("AndroidKeyaliasName")?.stringValue;
+            var keystorePass = PlayerSettings.Android.keystorePass;
+            var keyaliasPass = PlayerSettings.Android.keyaliasPass;
+
+            PlayerSettings.Android.keystoreName = Path.GetFullPath(signing.KeystorePath);
+            PlayerSettings.Android.keystorePass = signing.KeystorePass;
+            PlayerSettings.Android.keyaliasName = signing.KeyAlias;
+            PlayerSettings.Android.keyaliasPass = signing.KeyPass;
+
+            return () =>
+            {
+                PlayerSettings.Android.keystorePass = keystorePass;
+                PlayerSettings.Android.keyaliasPass = keyaliasPass;
+                if (serialized != null && keystoreName != null && keyaliasName != null)
+                {
+                    serialized.Update();
+                    serialized.FindProperty("AndroidKeystoreName").stringValue = keystoreName;
+                    serialized.FindProperty("AndroidKeyaliasName").stringValue = keyaliasName;
+                    serialized.ApplyModifiedPropertiesWithoutUndo();
+                }
+                else
+                {
+                    PlayerSettings.Android.keystoreName = keystoreName ?? string.Empty;
+                    PlayerSettings.Android.keyaliasName = keyaliasName ?? string.Empty;
+                }
+            };
         }
 
         /// <summary>

@@ -77,7 +77,7 @@ The Unity images are large, so every Unity job first deletes preinstalled SDKs t
 
 Artifacts are kept for 14 days. Each job also writes a run summary: pass, fail and skip counts with the failing tests, or the APK's size, SHA-256 and manifest highlights.
 
-The APK is signed with Unity's debug key, because no release keystore is configured. Sideload it with `adb install -r CISpatialCompanion-Quest.apk`. It is not suitable for a store upload.
+The workflow passes no release keystore (see [Release signing](BUILD.md#release-signing-and-version-code)), so the APK is signed with Unity's debug key. Sideload it with `adb install -r CISpatialCompanion-Quest.apk`. It is not suitable for a store upload.
 
 ## Quest APK checks
 

@@ -20,7 +20,7 @@ An embodied mixed-reality companion for **Meta Quest 3** and **Pico** — a spat
 ## Status
 
 - **Unity 6000.3.19f1 (6.3 LTS)** · URP · OpenXR-first (Meta Quest + PICO feature groups)
-- All assemblies compile green; **108 automated tests** (105 EditMode + 3 PlayMode), run headless by [CI](docs/CI.md) on every pull request
+- All assemblies compile green; **125 automated tests** (122 EditMode + 3 PlayMode), run headless by [CI](docs/CI.md) on every pull request
 - Phases 1–2 verified running in-Editor; Phases 3–6 implemented (on-device ML / device-only paths are scaffolded behind interfaces)
 
 ## Why the rebuild
@@ -109,10 +109,10 @@ The PICO SDK's licence forbids redistributing any of its material without PICO's
 
 ## Tests
 
-108 tests, run from **Window → General → Test Runner** or headless:
+125 tests, run from **Window → General → Test Runner** or headless:
 
 - `Assets/XRScan/Tests/EditMode` — 20 tests: bounding-box math, scan-ray math (camera intrinsics → world ray), the spatial-pin store (dedup + events), the mock-detector contract, the avatar model contract (`AvatarModelTests`: every lip-sync viseme present, rest pose at zero weights, a `Head` bone, no Ready Player Me provenance in any shipped GLB, and both `XRScan_Main` and `XRScan_Dev` instance the companion with lip-sync on its `Face` mesh), and the licence inventory (`ThirdPartyNoticesTests`: every package in `Packages/packages-lock.json` is listed in `THIRD_PARTY_NOTICES.md`).
-- `Assets/XRScan/Tests/Config` — 85 EditMode tests: endpoint URL policy, backend config resolution, the in-headset settings model, permission prompts and gates, scene wiring and the cleartext transport gates.
+- `Assets/XRScan/Tests/Config` — 102 EditMode tests: endpoint URL policy, backend config resolution, the in-headset settings model, permission prompts and gates, scene wiring, the cleartext transport gates, and the release signing and versionCode rules of the Android builds.
 - `Assets/XRScan/Tests/PlayMode` — 3 scanning-pipeline tests: a detection at a known screen position must land a pin at a known world position, and repeated scans of one object must dedup to one pin.
 
 [CI](docs/CI.md) runs both suites on every pull request, then builds the Quest APK. The same commands work locally (listed in docs/CI.md).
