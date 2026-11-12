@@ -95,6 +95,7 @@ A correct **Quest** build reports:
 - OpenXR wiring: `org.khronos.openxr.permission.OPENXR`, and the Meta entries `com.oculus.feature.PASSTHROUGH` / `com.oculus.intent.category.VR` / `com.oculus.vr.focusaware`
 - the application meta-data `com.oculus.ossplash.background` = `passthrough-contextual` (passthrough before the splash screen). `badging` does not show meta-data; read it with `%BT%\aapt2 dump xmltree --file AndroidManifest.xml Builds\CISpatialCompanion-Quest.apk`
 - no `com.pvr.tobactivate.permission.AUTH_CHECK`, and no PICO or Mock HMD libraries under `lib/arm64-v8a/`
+- none of `com.oculus.permission.EYE_TRACKING` (Meta's Social Eye Gaze feature, which `XRScanBuilder` keeps off), `com.oculus.permission.BOUNDARY_VISIBILITY`, `com.oculus.permission.IMPORT_EXPORT_IOT_MAP_DATA` or `com.oculus.permission.USE_COLOCATION_DISCOVERY_API` (the unused Meta features `XRScanBuilder` keeps off)
 
 A correct **Pico** build has `RECORD_AUDIO` + `com.pvr.tobactivate.permission.AUTH_CHECK` and `pvr.*` / `enable_scene_anchor` manifest entries, and **must not** contain the Meta-only permissions above. Verified: the two APKs' manifests differ exactly along these lines.
 

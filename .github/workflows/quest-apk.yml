@@ -219,6 +219,10 @@ jobs:
             expect "name='horizonos\.permission\.HEADSET_CAMERA'" "Missing horizonos.permission.HEADSET_CAMERA (comes from the Meta AR camera feature)"
             expect "name='com\.oculus\.permission\.USE_SCENE'" "Missing com.oculus.permission.USE_SCENE (comes from com.unity.xr.meta-openxr)"
             reject "com\.pvr\.tobactivate\.permission\.AUTH_CHECK" "PICO permission com.pvr.tobactivate.permission.AUTH_CHECK is in the Quest APK"
+            # Meta features XRScanBuilder keeps off: Social Eye Gaze and the unused anchor, boundary and colocation ones.
+            for permission in EYE_TRACKING BOUNDARY_VISIBILITY IMPORT_EXPORT_IOT_MAP_DATA USE_COLOCATION_DISCOVERY_API; do
+              reject "com\.oculus\.permission\.${permission}" "com.oculus.permission.${permission} is in the Quest APK (its Meta feature should be off)"
+            done
             # Passthrough before the splash screen (Meta camera feature, Passthrough Pre Splash Screen).
             if ! grep -A 2 '"com\.oculus\.ossplash\.background"' <<< "$manifest" | grep -q '"passthrough-contextual"'; then
               errors+=("Missing meta-data com.oculus.ossplash.background = passthrough-contextual (Passthrough Pre Splash Screen)")

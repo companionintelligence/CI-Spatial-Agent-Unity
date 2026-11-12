@@ -203,8 +203,9 @@ namespace XRScan.EditorTools
         /// <summary>
         /// Enables the target headset's OpenXR features and disables the other's — Quest and PICO
         /// can't both be active in one build (OpenXR validation allows only one vendor's interaction
-        /// profile). Quest build: Meta/Oculus features on (except <see cref="UnusedMetaFeatures"/>),
-        /// PICO off; Pico build: the reverse. Saves the settings asset only when a toggle changed.
+        /// profile). Quest build: Meta/Oculus features on (except <see cref="UnusedMetaFeatures"/> and
+        /// Social Eye Gaze), PICO off; Pico build: the reverse. Saves the settings asset only when a
+        /// toggle changed.
         /// </summary>
         private static void ConfigureOpenXRFeatures(bool quest)
         {
@@ -223,12 +224,18 @@ namespace XRScan.EditorTools
                 bool isPico = n.Contains("PICO") || n.Contains("Pico") || n.Contains("Poxr");
                 // The legacy "Oculus Quest" support feature is deprecated in favour of "Meta Quest".
                 bool isDeprecatedOculusQuest = n.Contains("OculusQuest");
+                // Meta OpenXR 2.6 added "Meta Quest: Social Eye Gaze", which adds the
+                // com.oculus.permission.EYE_TRACKING permission and the oculus.software.eye_tracking
+                // feature. The app does not use eye tracking. The pinned Meta OpenXR 2.5.1 has no such
+                // feature; this keeps a package upgrade from turning it on with the other Meta features.
+                bool isSocialEyeGaze = n.EndsWith("MetaSocialEyeGazeFeature", System.StringComparison.Ordinal);
                 // Meta features + the Oculus/Meta Touch controller interaction profile stay on for Quest.
                 bool isMeta = n.Contains("Meta") || n.Contains("OculusTouch");
 
                 bool target;
                 if (isPico) target = !quest;
                 else if (isDeprecatedOculusQuest) target = false; // always off — use the Meta Quest feature
+                else if (isSocialEyeGaze) target = false; // always off — opt in deliberately if eye tracking is needed
                 else if (UnusedMetaFeatures.Contains(n)) target = false; // see UnusedMetaFeatures
                 else if (isMeta) target = quest;
                 else continue; // leave vendor-neutral features (hand tracking, debugger, ...) untouched
