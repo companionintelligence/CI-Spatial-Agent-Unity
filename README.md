@@ -13,14 +13,14 @@
   <a href="#getting-started"><img src="https://img.shields.io/badge/Get%20started-Get%20started-0a6358?style=for-the-badge&logo=unity&logoColor=white" alt="Get started" height="30"></a>
 </p>
 
-An embodied mixed-reality companion for **Meta Quest 3** and **Pico** — a spatial agent that scans the room, drops world-anchored pins on detected objects, and answers questions about them through a **Ready Player Me avatar** that looks at you, speaks with viseme lip-sync, and (WIP) walks the space.
+An embodied mixed-reality companion for **Meta Quest 3** and **Pico** — a spatial agent that scans the room, drops world-anchored pins on detected objects, and answers questions about them through the **CI Companion avatar** (a CI-owned character generated in Blender) that looks at you, speaks with viseme lip-sync, and (WIP) walks the space.
 
 > **Ground-up rebuild (July 2026).** Unifies the scanning + embodied-avatar goals on a supported LTS, replacing the earlier XREAL prototype. Original design brief preserved at the bottom of this file.
 
 ## Status
 
 - **Unity 6000.3.19f1 (6.3 LTS)** · URP · OpenXR-first (Meta Quest + PICO feature groups)
-- All assemblies compile green; **16 automated tests** (13 EditMode + 3 PlayMode), run headless by [CI](docs/CI.md) on every pull request
+- All assemblies compile green; **105 automated tests** (102 EditMode + 3 PlayMode), run headless by [CI](docs/CI.md) on every pull request
 - Phases 1–2 verified running in-Editor; Phases 3–6 implemented (on-device ML / device-only paths are scaffolded behind interfaces)
 
 ## Why the rebuild
@@ -82,20 +82,31 @@ Endpoints and API keys are read from `ServerConfig` / `LlmConfig` / `VoiceConfig
 
 ## Getting started
 
-1. Open with **Unity 6000.3.19f1** (with Android Build Support). Packages resolve automatically (RPM, uLipSync, PICO OpenXR and the Unity MCP bridge are pulled via git; glTFast comes from the Unity registry as an RPM dependency).
+1. Open with **Unity 6000.3.19f1** (with Android Build Support). Packages resolve automatically (uLipSync, PICO OpenXR and MCP for Unity are pulled via git at pinned commits; glTFast and the rest come from the Unity registry).
 2. Open `Assets/XRScan/App/Scenes/XRScan_Main.unity` and press **Play** — it runs entirely on mocks (mock camera → detector → pin → avatar looks + speaks; push-to-talk voice Q&A). No device or server required.
 3. To use real backends, set `useMocks = false` on `AppBootstrap` and fill in `ServerConfig` / `LlmConfig` / `VoiceConfig`.
 4. Build for Quest 3 / Pico with **XRScan → Build → Quest 3** or **Pico** (one APK per headset). Each applies Android, IL2CPP, ARM64, Vulkan, min SDK 32 and switches on that headset's OpenXR features; see [docs/BUILD.md](docs/BUILD.md).
 
 ## Avatars
 
-RPM / Wolf3D GLB avatars live in `Assets/XRScan/Avatar/Models/` (glTFast imports `.glb` at edit-time). `CI_Brad` carries the full **15 Oculus visemes** on `Wolf3D_Head`; swap avatars via `AvatarLoadController.avatarPrefab`.
+The avatar is `Assets/XRScan/Avatar/Models/CI_Companion.glb` (glTFast imports `.glb` at edit time): a stylized, Companion Intelligence-owned character built entirely in code by `tools/avatar/build_ci_companion.py` (no third-party meshes or textures). Its `Face` mesh carries the **15 Oculus-style visemes** (`viseme_sil` … `viseme_U`) that `AvatarLipSync` drives, plus `mouthOpen`, `jawOpen`, `mouthSmile` and `eyeBlinkLeft/Right`.
+
+![CI Companion visemes](docs/images/ci_companion_visemes.png)
+
+Regenerate it (deterministic) from the repo root with Blender 5.1:
+
+```
+"C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background --factory-startup --python tools/avatar/build_ci_companion.py -- --out Assets/XRScan/Avatar/Models/CI_Companion.glb --render docs/images/ci_companion_avatar.png --visemes docs/images/ci_companion_visemes.png
+```
+
+To put a different model on the scene avatar, keep its behaviour components and re-bind lip-sync, use **XRScan → Scene → Use CI Companion avatar** (`AvatarModelSwapper`; point it at another GLB with the same `viseme_*` blend-shape names). Any replacement must be CI-owned or verifiably CC0 — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The earlier Ready Player Me avatars (`CI_Brad`, `LiamCES`, both tagged copyright Ready Player Me) and the Ready Player Me SDK were removed.
 
 ## Tests
 
-16 tests, run from **Window → General → Test Runner** or headless:
+105 tests, run from **Window → General → Test Runner** or headless:
 
-- `Assets/XRScan/Tests/EditMode` — 13 tests: bounding-box math, scan-ray math (camera intrinsics → world ray), the spatial-pin store (dedup + events), and the mock-detector contract.
+- `Assets/XRScan/Tests/EditMode` — 17 tests: bounding-box math, scan-ray math (camera intrinsics → world ray), the spatial-pin store (dedup + events), the mock-detector contract, and the avatar model contract (`AvatarModelTests`: every lip-sync viseme present, rest pose at zero weights, a `Head` bone, and no Ready Player Me provenance in any shipped GLB).
+- `Assets/XRScan/Tests/Config` — 85 EditMode tests: endpoint URL policy, backend config resolution, the in-headset settings model, permission prompts and gates, scene wiring and the cleartext transport gates.
 - `Assets/XRScan/Tests/PlayMode` — 3 scanning-pipeline tests: a detection at a known screen position must land a pin at a known world position, and repeated scans of one object must dedup to one pin.
 
 [CI](docs/CI.md) runs both suites on every pull request, then builds the Quest APK. The same commands work locally (listed in docs/CI.md).

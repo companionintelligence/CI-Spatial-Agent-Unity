@@ -33,7 +33,7 @@ namespace XRScan.EditorTools
     public static class MRSceneBuilder
     {
         private const string ScenePath = "Assets/XRScan/App/Scenes/XRScan_Main.unity";
-        private const string AvatarName = "Avatar (CI_Brad)";
+        private const string AvatarName = AvatarModelSwapper.CompanionAvatarName;
 
         // AR Foundation's URP integration requires this renderer feature on the active Universal
         // Renderer when the graphics API is Vulkan (as it is for the Quest/Pico builds). Without it,
@@ -112,7 +112,7 @@ namespace XRScan.EditorTools
             origin.RequestedTrackingOriginMode = XROrigin.TrackingOriginMode.Floor;
 
             // --- 4. Place the avatar ~1.8 m ahead at floor level, facing the user ---
-            var avatar = GameObject.Find(AvatarName);
+            var avatar = FindAvatar();
             if (avatar != null)
             {
                 avatar.transform.position = new Vector3(0f, 0f, 1.8f);
@@ -334,7 +334,7 @@ namespace XRScan.EditorTools
             var input = Object.FindAnyObjectByType<XRInputController>();
             sb.AppendLine($"  XRInputController.bootstrap={ReadRef(input, "bootstrap")}");
 
-            var avatar = GameObject.Find(AvatarName);
+            var avatar = FindAvatar();
             if (avatar != null)
                 sb.AppendLine($"  Avatar pos={avatar.transform.position} rot={avatar.transform.eulerAngles}");
 
@@ -365,6 +365,13 @@ namespace XRScan.EditorTools
                 sb.AppendLine($"  Camera allowHDR={cam.allowHDR} postProcessing={(cam.GetUniversalAdditionalCameraData()?.renderPostProcessing)}");
 
             Debug.Log(sb.ToString());
+        }
+
+        /// <summary>The scene avatar: the GameObject carrying AvatarLoadController (by name as a fallback).</summary>
+        private static GameObject FindAvatar()
+        {
+            var loader = Object.FindAnyObjectByType<XRScan.Avatar.AvatarLoadController>();
+            return loader != null ? loader.gameObject : GameObject.Find(AvatarName);
         }
 
         private static string Name(Object o) => o != null ? o.name : "<null>";

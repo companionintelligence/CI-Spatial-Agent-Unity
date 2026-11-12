@@ -4,9 +4,10 @@ namespace XRScan.Avatar
 {
     /// <summary>
     /// Phoneme-accurate lip-sync via uLipSync: analyzes the TTS AudioSource in real time and drives
-    /// the RPM / Oculus visemes on the face (and teeth) mesh — web-parity mouth shapes, replacing the
-    /// amplitude-only VisemeController. Self-wires uLipSync + uLipSyncBlendShape at Start, mapping the
-    /// profile's phonemes (A/I/U/E/O/S) onto the RPM viseme_* blendshapes.
+    /// the Oculus-style visemes on the face (and, if the model has one, teeth) mesh — web-parity mouth
+    /// shapes, replacing the amplitude-only VisemeController. Self-wires uLipSync + uLipSyncBlendShape
+    /// at Start, mapping the profile's phonemes (A/I/U/E/O/S) onto the <c>viseme_*</c> blendshapes
+    /// (see <see cref="VisemeBlendShapes"/>; the CI Companion avatar carries all 15).
     /// </summary>
     [RequireComponent(typeof(AudioSource))]
     public class AvatarLipSync : MonoBehaviour
@@ -14,7 +15,7 @@ namespace XRScan.Avatar
         [SerializeField] private uLipSync.Profile profile;
         [SerializeField] private SkinnedMeshRenderer faceRenderer;
         [SerializeField] private SkinnedMeshRenderer teethRenderer;
-        // RPM / Oculus viseme blendshapes are authored for 0–100%. uLipSync applies
+        // Oculus-style viseme blendshapes are authored for 0–100%. uLipSync applies
         // weight = ratio * maxWeight * volume * 100, so anything above 1.0 over-extrudes the mesh
         // and it distorts — keep this at (or below) 1.0.
         [SerializeField, Range(0f, 1f)] private float maxWeight = 1.0f;
@@ -23,7 +24,7 @@ namespace XRScan.Avatar
         [SerializeField] private bool blendVisemes = true;
         [SerializeField, Range(0f, 0.3f)] private float smoothness = 0.08f;
 
-        // uLipSync profile phoneme -> RPM Oculus viseme blendshape name.
+        // uLipSync profile phoneme -> Oculus-style viseme blendshape name.
         private static readonly (string phoneme, string viseme)[] VisemeMap =
         {
             ("A", "viseme_aa"),
@@ -33,6 +34,12 @@ namespace XRScan.Avatar
             ("O", "viseme_O"),
             ("S", "viseme_SS"),
         };
+
+        /// <summary>The blendshape names lip-sync binds to; an avatar's face mesh should carry all of them.</summary>
+        public static System.Collections.Generic.IEnumerable<string> VisemeBlendShapes
+        {
+            get { foreach (var (_, viseme) in VisemeMap) yield return viseme; }
+        }
 
         private uLipSync.uLipSync _lipSync;
 

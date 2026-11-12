@@ -846,6 +846,10 @@ def export_glb(path, objects):
         export_morph_normal=False,
         export_morph_tangent=False,
         export_animations=False,
+        # One vertex accessor set per mesh shared by all its material primitives. Required:
+        # glTFast (6.14) fails to import a skinned mesh whose primitives each bring their own
+        # JOINTS/WEIGHTS accessors (job-safety error in SortAndNormalizeBoneWeightsJob).
+        export_shared_accessors=True,
     )
     optional = ["export_animations", "export_morph_tangent", "export_tangents", "export_texcoords",
                 "export_extras", "export_cameras", "export_lights"]
