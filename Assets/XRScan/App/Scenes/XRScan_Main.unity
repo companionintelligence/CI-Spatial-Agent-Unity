@@ -119,53 +119,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &13969392
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 13969394}
-  - component: {fileID: 13969393}
-  m_Layer: 0
-  m_Name: MockCameraProvider
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &13969393
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 13969392}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 49d39484f6bbc2f41b9654bdebbcfc3c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: XRScan.Mocks::XRScan.Mocks.MockCameraProvider
-  width: 640
-  height: 480
-  fillColor: {r: 0.3, g: 0.4, b: 0.5, a: 1}
---- !u!4 &13969394
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 13969392}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &133325076
 GameObject:
   m_ObjectHideFlags: 0
@@ -177,7 +130,7 @@ GameObject:
   - component: {fileID: 133325078}
   - component: {fileID: 133325077}
   m_Layer: 0
-  m_Name: MockLlm
+  m_Name: LlmBackend
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -192,10 +145,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 133325076}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe8425d68ed73e045816d9935aa35883, type: 3}
+  m_Script: {fileID: 11500000, guid: 0cfd40fdb858d44498b8bf5cea2eda76, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: XRScan.Mocks::XRScan.Mocks.MockLlmBackend
-  thinkSeconds: 0.4
+  m_EditorClassIdentifier: XRScan.Llm::XRScan.Llm.OllamaBackend
+  config: {fileID: 11400000, guid: c163e86618ac4968abc7995b66f1003f, type: 2}
 --- !u!4 &133325078
 Transform:
   m_ObjectHideFlags: 0
@@ -370,11 +323,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 599888115}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1de2535672b086c4bbac7b989b6d69d7, type: 3}
+  m_Script: {fileID: 11500000, guid: 201e6385dcb7f614390b2b46300da4d2, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: XRScan.Mocks::XRScan.Mocks.MockTts
-  secondsPerChar: 0.06
-  frequency: 220
+  m_EditorClassIdentifier: XRScan.Voice::XRScan.Voice.CloudTts
+  config: {fileID: 11400000, guid: c203791abcef4c03b131065ab99ff80c, type: 2}
 --- !u!114 &599888117
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -833,11 +785,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0288f525a8d90a444bd1bb9f59a28224, type: 3}
   m_Name: 
   m_EditorClassIdentifier: XRScan.App::XRScan.App.AppBootstrap
-  serverConfig: {fileID: 0}
-  useMocks: 1
+  serverConfig: {fileID: 11400000, guid: 34ea024adc504a47b911f25d42e7ed24, type: 2}
+  useMocks: 0
   scanController: {fileID: 1811239538}
   pinManager: {fileID: 2140890331}
-  mockCamera: {fileID: 13969393}
+  mockCamera: {fileID: 0}
   arCamera: {fileID: 2053456918}
   desktopCamera: {fileID: 0}
   perceptionBridge: {fileID: 436750302}
@@ -845,7 +797,7 @@ MonoBehaviour:
   ttsBehaviour: {fileID: 599888116}
   conversation: {fileID: 850987114}
   knowledge: {fileID: 681259752}
-  sttBehaviour: {fileID: 1611198966}
+  sttBehaviour: {fileID: 1611198968}
   llmBehaviour: {fileID: 133325077}
 --- !u!4 &1265999124
 Transform:
@@ -1021,8 +973,9 @@ GameObject:
   m_Component:
   - component: {fileID: 1611198967}
   - component: {fileID: 1611198966}
+  - component: {fileID: 1611198968}
   m_Layer: 0
-  m_Name: MockStt
+  m_Name: SpeechToText
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1037,14 +990,25 @@ MonoBehaviour:
   m_GameObject: {fileID: 1611198965}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 80175557d31cdea44a6aee4b11008f34, type: 3}
+  m_Script: {fileID: 11500000, guid: a778b2f090e08ba45a5afd5939696b2b, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: XRScan.Mocks::XRScan.Mocks.MockStt
-  scriptedQuestions:
-  - what do you see?
-  - what is on the table?
-  - how many objects are there?
-  responseDelay: 0.3
+  m_EditorClassIdentifier: XRScan.Voice::XRScan.Voice.CloudWhisperStt
+  config: {fileID: 11400000, guid: c203791abcef4c03b131065ab99ff80c, type: 2}
+--- !u!114 &1611198968
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1611198965}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e34c43de1ff44c2fb79bd581cad644c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: XRScan.Settings::XRScan.Settings.PermissionGatedSpeechToText
+  inner: {fileID: 1611198966}
+  permissions: {fileID: 700000012}
+  voiceConfig: {fileID: 11400000, guid: c203791abcef4c03b131065ab99ff80c, type: 2}
 --- !u!4 &1611198967
 Transform:
   m_ObjectHideFlags: 0
@@ -1463,12 +1427,153 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &700000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 700000002}
+  - component: {fileID: 700000003}
+  m_Layer: 0
+  m_Name: CompanionConfig
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &700000002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 700000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &700000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 700000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 696d7eb69b7c45d390c870f07bb0fbd6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: XRScan.Settings::XRScan.Settings.CompanionConfigBootstrap
+  config: {fileID: 11400000, guid: f63ea57ee00849109f2f4d4dd1dd56a8, type: 2}
+--- !u!1 &700000010
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 700000011}
+  - component: {fileID: 700000012}
+  m_Layer: 0
+  m_Name: RuntimePermissions
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &700000011
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 700000010}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &700000012
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 700000010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b352f9dec712411da67f2a22abecd282, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: XRScan.Settings::XRScan.Settings.RuntimePermissions
+  requestSpatialOnStart: 1
+  spatialPromptDelaySeconds: 1.5
+--- !u!1 &700000020
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 700000021}
+  - component: {fileID: 700000022}
+  m_Layer: 0
+  m_Name: SettingsPanel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &700000021
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 700000020}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &700000022
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 700000020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fadd8774013d42bea376f43e6ff16dbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: XRScan.Settings::XRScan.Settings.CompanionSettingsPanel
+  config: {fileID: 11400000, guid: f63ea57ee00849109f2f4d4dd1dd56a8, type: 2}
+  permissions: {fileID: 700000012}
+  disableWhileOpen:
+  - {fileID: 1346699641}
+  distance: 0.8
+  noticeSeconds: 6
+  autoOpenDelaySeconds: 2
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 1098029891}
-  - {fileID: 13969394}
   - {fileID: 1480304007}
   - {fileID: 2140890332}
   - {fileID: 1811239539}
@@ -1482,3 +1587,6 @@ SceneRoots:
   - {fileID: 928378154}
   - {fileID: 1331915635}
   - {fileID: 1346699642}
+  - {fileID: 700000002}
+  - {fileID: 700000011}
+  - {fileID: 700000021}
