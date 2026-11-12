@@ -25,7 +25,7 @@ _State of `main` after PR #18, together with the build-hygiene, runtime-configur
 5. **Pico on a device.**
 6. **Avatar check on a device.** A body-mesh/pin artifact during the gaze spin was seen with the old Ready Player Me avatar; it has not been rechecked with `CI_Companion.glb`.
 7. **Release signing.** All APKs are currently signed with the debug key.
-8. **ARCore.** `com.unity.xr.arcore` is still bundled (inert on headsets); drop it from the manifest if no phone build is planned.
+8. **ARCore.** `com.unity.xr.arcore`'s managed assembly still ships (its Google client library does not, since the ARCore loader is off on Android); drop the package from the manifest if no phone build is planned.
 
 ## Environment and commands
 

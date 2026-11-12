@@ -101,6 +101,10 @@ Regenerate it (deterministic) from the repo root with Blender 5.1:
 
 To put a different model on the scene avatar, keep its behaviour components and re-bind lip-sync, use **XRScan → Scene → Use CI Companion avatar** (`AvatarModelSwapper`; point it at another GLB with the same `viseme_*` blend-shape names). Any replacement must be CI-owned or verifiably CC0 — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The earlier Ready Player Me avatars (`CI_Brad`, `LiamCES`, both tagged copyright Ready Player Me) and the Ready Player Me SDK were removed.
 
+## Licensing
+
+The project is proprietary ([LICENSE.md](LICENSE.md)). Every bundled package and asset, its licence, which APK it ships in, and the notices a release must carry are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); update it whenever a dependency or asset changes. Quest builds leave out the PICO SDK (its licence forbids redistribution without PICO's written permission) and every build leaves out the MCP for Unity editor tooling — see [docs/BUILD.md](docs/BUILD.md#what-each-apk-contains).
+
 ## Tests
 
 105 tests, run from **Window → General → Test Runner** or headless:
