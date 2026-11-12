@@ -22,15 +22,19 @@ namespace XRScan.EditorTools
     /// ends: 0 = built, 1 = failed, threw, or wrote no fresh APK.</para>
     /// <para>Signing and versionCode come from the environment (<see cref="AndroidReleaseSettings"/>): the
     /// release keystore only when <c>KEYSTORE_PATH</c>, <c>KEYSTORE_PASS</c>, <c>KEY_ALIAS</c> and
-    /// <c>KEY_PASS</c> are set, else Unity's debug key; <c>-release</c> makes a build without them fail.</para>
+    /// <c>KEY_PASS</c> are set, else Unity's debug key; <c>-release</c> makes a build without them fail.
+    /// <c>-aab</c> builds an Android App Bundle instead of an APK.</para>
     /// </summary>
     public static class XRScanBuilder
     {
         private const string Scene = "Assets/XRScan/App/Scenes/XRScan_Main.unity";
         private const string QuestDefine = "XRSCAN_QUEST";
         private const string PicoDefine = "XRSCAN_PICO";
-        private const string QuestApk = "CISpatialCompanion-Quest.apk";
-        private const string PicoApk = "CISpatialCompanion-Pico.apk";
+        private const string QuestOutput = "CISpatialCompanion-Quest";
+        private const string PicoOutput = "CISpatialCompanion-Pico";
+
+        /// <summary>Command-line flag: build an Android App Bundle (<c>.aab</c>) instead of an APK.</summary>
+        internal const string AppBundleFlag = "-aab";
 
         /// <summary>Android target SDK of every APK: the Meta Horizon Store requires exactly API 34.</summary>
         internal const AndroidSdkVersions TargetSdk = AndroidSdkVersions.AndroidApiLevel34;
@@ -138,7 +142,8 @@ namespace XRScan.EditorTools
         {
             if (!CheckReleaseSettings(out var versionCode, out var signing))
                 return false;
-            var apkName = pico ? PicoApk : QuestApk;
+            bool appBundle = AndroidReleaseSettings.HasFlag(Environment.GetCommandLineArgs(), AppBundleFlag);
+            var apkName = (pico ? PicoOutput : QuestOutput) + (appBundle ? ".aab" : ".apk");
             ConfigureAndroid();
             SetPlatformDefine(pico ? PicoDefine : QuestDefine);
             ConfigureOpenXRFeatures(!pico);
@@ -152,17 +157,25 @@ namespace XRScan.EditorTools
             //  - XRScanManifestPostProcessor strips PICO's stray permission from Quest builds.
 
             var restoreReleaseSettings = ApplyReleaseSettings(versionCode, signing);
+            // EditorUserBuildSettings.buildAppBundle picks the Gradle bundle task; it lives in Library,
+            // but is put back too so the next menu build makes an APK again.
+            bool previousAppBundle = EditorUserBuildSettings.buildAppBundle;
+            EditorUserBuildSettings.buildAppBundle = appBundle;
             try
             {
                 return BuildPlayer(apkName);
             }
             finally
             {
+                EditorUserBuildSettings.buildAppBundle = previousAppBundle;
                 restoreReleaseSettings();
             }
         }
 
-        /// <summary>Builds the app scene to <paramref name="apkName"/> in <see cref="OutputDirectory"/>.</summary>
+        /// <summary>
+        /// Builds the app scene to <paramref name="apkName"/> (an <c>.apk</c>, or an <c>.aab</c> when
+        /// <see cref="EditorUserBuildSettings.buildAppBundle"/> is on) in <see cref="OutputDirectory"/>.
+        /// </summary>
         private static bool BuildPlayer(string apkName)
         {
             var dir = OutputDirectory();
@@ -204,7 +217,7 @@ namespace XRScan.EditorTools
                 return true;
             }
 
-            Debug.LogError($"[XRScanBuilder] {apkName} build {s.result}{(apkWritten ? "" : ", no APK written")}, {s.totalErrors} error(s){errorList}");
+            Debug.LogError($"[XRScanBuilder] {apkName} build {s.result}{(apkWritten ? "" : ", nothing written to " + apkName)}, {s.totalErrors} error(s){errorList}");
             return false;
         }
 
@@ -323,7 +336,7 @@ namespace XRScan.EditorTools
         }
 
         /// <summary>
-        /// Where APKs are written: <c>-xrscanBuildDir &lt;dir&gt;</c> on the command line, else the
+        /// Where APKs and app bundles are written: <c>-xrscanBuildDir &lt;dir&gt;</c> on the command line, else the
         /// <c>XRSCAN_BUILD_DIR</c> environment variable, else <c>&lt;project&gt;/Builds</c>. Lets CI and
         /// scripted builds keep their output outside the working tree.
         /// </summary>

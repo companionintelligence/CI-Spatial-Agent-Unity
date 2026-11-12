@@ -35,7 +35,7 @@ The same entry points run headlessly. `-xrscanBuildDir <dir>` (or the `XRSCAN_BU
 Unity.exe -batchmode -projectPath . -buildTarget Android -executeMethod XRScan.EditorTools.XRScanBuilder.BuildQuest -xrscanBuildDir D:\out
 ```
 
-(`BuildPico` for the Pico APK.) Do **not** pass `-quit`: removing the packages needs a script reload that `-quit` would cut short (the builder refuses to start and exits 1 if it sees it). The builder exits by itself after restoring the project files: 0 = built; 1 = the build failed, threw, or wrote no fresh APK. If the editor is killed mid-build, the next start of the project restores the files. CI builds the Quest APK this way on every pull request and checks its contents; see [CI.md](CI.md).
+(`BuildPico` for the Pico APK.) Add `-aab` to build an Android App Bundle instead (`CISpatialCompanion-Quest.aab` / `CISpatialCompanion-Pico.aab`, same signing and versionCode rules), for stores and tools that take app bundles; to install one on a headset, turn it into APKs with Google's `bundletool`. Do **not** pass `-quit`: removing the packages needs a script reload that `-quit` would cut short (the builder refuses to start and exits 1 if it sees it). The builder exits by itself after restoring the project files: 0 = built; 1 = the build failed, threw, or wrote no fresh APK. If the editor is killed mid-build, the next start of the project restores the files. CI builds the Quest APK this way on every pull request and checks its contents; see [CI.md](CI.md).
 
 ## Release signing and version code
 
