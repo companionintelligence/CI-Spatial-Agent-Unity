@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "com.coplaydev.unity-mcp": {
-      "version": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#v10.3.0",
+      "version": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#aa5fc638d623f56178d50329d9ad8c541a57fe66",
       "depth": 0,
       "source": "git",
       "dependencies": {
@@ -18,7 +18,7 @@
       "hash": "aa5fc638d623f56178d50329d9ad8c541a57fe66"
     },
     "com.hecomi.ulipsync": {
-      "version": "https://github.com/hecomi/uLipSync.git#upm",
+      "version": "https://github.com/hecomi/uLipSync.git#ece3272762f2148dd8d3e658ec04fcbd79d4d97e",
       "depth": 0,
       "source": "git",
       "dependencies": {
@@ -377,7 +377,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.openxr.picoxr": {
-      "version": "https://github.com/Pico-Developer/PICO-Unity-OpenXR-SDK.git#release_1.4.0",
+      "version": "https://github.com/Pico-Developer/PICO-Unity-OpenXR-SDK.git#3aa3e62bff41df618529eeb60ff02c29a515dafe",
       "depth": 0,
       "source": "git",
       "dependencies": {
