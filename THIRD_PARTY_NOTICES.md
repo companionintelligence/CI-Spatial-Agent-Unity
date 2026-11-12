@@ -2,30 +2,31 @@
 
 CI Spatial Companion is proprietary software of LifeScope Inc. dba Companion Intelligence (see [LICENSE.md](LICENSE.md)). This file lists every third-party package and asset the Unity project depends on, whether it ends up in the Android players, the licence it is under, and the notices those licences require. Ship these notices with every release (an in-app "Licences" screen or a document next to the store listing); the full licence texts referenced below must accompany the distribution.
 
-Reviewed 2026-11-12 against `Packages/packages-lock.json`, Unity 6000.3.19f1 and the contents of Quest and Pico APKs built with `XRScan.EditorTools.XRScanBuilder.BuildQuest` / `BuildPico` (see [Verification](#6-how-this-was-verified)). When a dependency or asset is added, removed or upgraded, update this file in the same change.
+Reviewed 2026-11-12 against `Packages/packages-lock.json`, Unity 6000.3.19f1, each package's licence files, and the Quest and Pico APKs built with `XRScan.EditorTools.XRScanBuilder.BuildQuest` / `BuildPico` (see [Verification](#6-how-this-was-verified)). When a dependency or asset is added, removed or upgraded, update this file in the same change; the EditMode test `ThirdPartyNoticesTests` fails while a resolved package is missing from it.
 
 Licence abbreviations: **UCL** = [Unity Companion License](https://unity3d.com/legal/licenses/unity_companion_license) · **UPDL** = [Unity Package Distribution License](https://unity3d.com/legal/licenses/Unity_Package_Distribution_License) · **Oculus SDK** = [Oculus SDK License Agreement](https://developer.oculus.com/licenses/oculussdk/).
 
 ## 1. Shipped in the player builds
 
-`Quest` = build made by **XRScan → Build → Quest 3** (`XRSCAN_QUEST`); `Pico` = **XRScan → Build → Pico** (`XRSCAN_PICO`). See [`docs/BUILD.md`](docs/BUILD.md#what-each-apk-contains) for how each build is trimmed.
+`Quest` = build made by **XRScan → Build → Quest 3** (`XRSCAN_QUEST`); `Pico` = **XRScan → Build → Pico** (`XRSCAN_PICO`). The builder builds each APK from a project without the packages that APK must not contain (the PICO SDK for Quest, MCP for Unity for both) and build callbacks trim the rest; see [`docs/BUILD.md`](docs/BUILD.md#what-each-apk-contains).
 
 ### 1.1 Engine and Unity packages
 
 | Component | Version | Licence (as stated in the package's `LICENSE.md`) | Bundled third-party components (notices in §5) | Quest | Pico |
 |---|---|---|---|---|---|
 | Unity runtime (engine, IL2CPP class libraries) | 6000.3.19f1 | [Unity Editor Software Terms](https://unity.com/legal/editor-terms-of-service/software) §2.2 (runtime may be distributed as part of the project) | Unity's own notices | yes | yes |
-| Universal RP `com.unity.render-pipelines.universal` | 17.3.0 | UCL | FXAA 3.11 (NVIDIA, BSD-3-Clause style) | yes | yes |
-| SRP Core `com.unity.render-pipelines.core` / Shader Graph `com.unity.shadergraph` | 17.3.0 | UCL | RadeonRays 4.1 (MIT), Bullet Physics (zlib), Sobol sampler (MIT) | yes | yes |
-| Burst `com.unity.burst` | 1.8.29 | UCL (source) / UPDL | LLVM (Apache-2.0 WITH LLVM-exception), musl (MIT), SLEEF (BSL-1.0), mimalloc (MIT) and others listed in the package's `Third Party Notices.md` | yes | yes |
-| Collections 2.5.1, Mathematics 1.3.3, Input System 1.19.0, AI Navigation 2.0.0, Animation Rigging 1.3.0, Timeline 1.8.6, uGUI 2.0.0 (incl. TextMesh Pro) | see left | UCL | — | yes | yes |
-| Visual Scripting `com.unity.visualscripting` | 1.9.1 | UPDL | Full Serializer, YamlDotNet, NCalc, SQLite .NET … (MIT), DotNetZip, AQN Parser (Ms-PL), SQLite (public domain) — see the package's `Third Party Notices.md` | yes | yes |
-| XR Plug-in Management 4.5.4, XR Core Utilities 2.6.0, Composition Layers 2.4.0, AR Foundation 6.5.0 | see left | UCL (Composition Layers: UCL source / UPDL) | — | yes | yes |
+| Universal RP `com.unity.render-pipelines.universal`, URP Config `com.unity.render-pipelines.universal-config` | 17.3.0, 17.0.3 | UCL | FXAA 3.11 (NVIDIA, BSD-3-Clause style); SMAA shader code and its `AreaTex` / `SearchTex` lookup textures (MIT); Clipper 6.4.2 (Angus Johnson, BSL-1.0) in the 2D renderer; the terrain grass shaders are Unity built-in shader source under MIT | yes | yes |
+| SRP Core `com.unity.render-pipelines.core`, Shader Graph `com.unity.shadergraph` | 17.3.0 | UCL | AMD FidelityFX FSR 1 shader code (MIT), compiled into URP's final-post and upscaling shaders; ACES reference transforms (A.M.P.A.S. licence); RadeonRays 4.1 (MIT); Bullet Physics (zlib); Sobol sampler (MIT); the *Perfect DOS VGA 437* font of the Rendering Debugger UI (no stated licence, see §4 item 6) | yes | yes |
+| Burst `com.unity.burst` | 1.8.29 | UCL (source) / UPDL | Runtime: float formatting translated from Ryan Juckett's code (zlib). Compiled code: LLVM (Apache-2.0 WITH LLVM-exception), musl (MIT), SLEEF (BSL-1.0), mimalloc (MIT) and the others listed in the package's `Third Party Notices.md` | yes | yes |
+| Mathematics `com.unity.mathematics` | 1.3.3 | UCL | webgl-noise (Ashima Arts, Stefan Gustavson; MIT) in `Unity.Mathematics.noise` | yes | yes |
+| Collections `com.unity.collections` | 2.5.1 | UCL | `xxHash3`, based on the xxHash library (Yann Collet, BSD-2-Clause) | yes | yes |
+| Input System `com.unity.inputsystem` 1.19.0, AI Navigation `com.unity.ai.navigation` 2.0.0, Animation Rigging `com.unity.animation.rigging` 1.3.0, Timeline `com.unity.timeline` 1.8.6, uGUI incl. TextMesh Pro `com.unity.ugui` 2.0.0 | see left | UCL | — | yes | yes |
+| XR Plug-in Management `com.unity.xr.management` 4.5.4, XR Core Utilities `com.unity.xr.core-utils` 2.6.0, Composition Layers `com.unity.xr.compositionlayers` 2.4.0, AR Foundation `com.unity.xr.arfoundation` 6.5.0 | see left | UCL (Composition Layers: UCL source / UPDL) | — | yes | yes |
 | XR Legacy Input Helpers `com.unity.xr.legacyinputhelpers` | 2.1.13 | UCL | ArmModel / SwingArmModel / TransitionArmModel (Google, Apache-2.0) | yes | yes |
-| OpenXR Plugin `com.unity.xr.openxr` | 1.16.1 | UCL (source) / UPDL | Khronos OpenXR loader (OpenXR-SDK-Source, Apache-2.0) — Quest builds use this loader; Oculus OpenXR Mobile SDK (Oculus SDK) when the Meta Quest feature is enabled | yes | yes (PICO's own loader replaces the Khronos one) |
+| OpenXR Plugin `com.unity.xr.openxr` | 1.16.1 | UCL (source) / UPDL | Khronos OpenXR loader `libopenxr_loader.so` (OpenXR-SDK-Source, Apache-2.0), which statically links JsonCpp (public domain / MIT); Oculus OpenXR Mobile SDK (Oculus SDK) when the Meta Quest feature is enabled | yes | yes, except the Khronos loader: PICO's own `libopenxr_loader.so` (which also links JsonCpp) replaces it |
 | Unity OpenXR: Meta `com.unity.xr.meta-openxr` | 2.5.1 | UCL (source) / UPDL | OpenXR-SDK-Source (Apache-2.0), Oculus OpenXR Mobile SDK and AudioPluginOculusSpatializer (Oculus SDK) | yes | managed code only; `libUnityARFoundationMeta.so` stripped |
 | Oculus XR Plugin `com.unity.xr.oculus` | 4.5.4 | UCL (source) / UPDL | OVRPlugin, AudioPluginOculusSpatializer (Oculus SDK) | managed `Unity.XR.Oculus` and Unity's `OculusUnity` Java helper only; OVRPlugin and the spatializer are not packaged (the Oculus loader is off) | same as Quest |
-| ARCore XR Plugin `com.unity.xr.arcore` | 6.3.5 | UCL | Google ARCore client library ([Google APIs Terms of Service](https://developers.google.com/terms/)) | managed `Unity.XR.ARCore` only; Google's client library is not packaged (the ARCore loader is off on Android) | same as Quest |
+| ARCore XR Plugin `com.unity.xr.arcore` | 6.3.5 | UCL | Google ARCore client library ([Google APIs Terms of Service](https://developers.google.com/terms/)) | managed `Unity.XR.ARCore` and Unity's `unityandroidpermissions.aar` Java helper only; Google's client library is not packaged (the ARCore loader is off on Android) | same as Quest |
 | Mock HMD `com.unity.xr.mock-hmd` | 1.5.0-exp.3 | UCL | — (`libUnityMockHMD.so` stripped from both APKs) | managed only | managed only |
 | Unity glTFast `com.unity.cloud.gltfast` | 6.14.1 | Apache-2.0 | — | yes | yes |
 | Newtonsoft Json `com.unity.nuget.newtonsoft-json` | 3.2.1 | UCL (package) | Newtonsoft.Json, Json.Net.Unity3D, Newtonsoft.Json-for-Unity, com.newtonsoft.json (all MIT) | yes | yes |
@@ -35,7 +36,7 @@ Licence abbreviations: **UCL** = [Unity Companion License](https://unity3d.com/l
 | Component | Version / source | Licence | Quest | Pico |
 |---|---|---|---|---|
 | uLipSync `com.hecomi.ulipsync` | 3.1.5, git `hecomi/uLipSync` @ `ece3272762f2148dd8d3e658ec04fcbd79d4d97e` | MIT, © 2021 hecomi ([LICENSE.md](https://github.com/hecomi/uLipSync/blob/ece3272762f2148dd8d3e658ec04fcbd79d4d97e/LICENSE.md)) | yes | yes |
-| PICO OpenXR Plugin `com.unity.xr.openxr.picoxr` | 1.4.1, git `Pico-Developer/PICO-Unity-OpenXR-SDK` @ `3aa3e62bff41df618529eeb60ff02c29a515dafe` (tag `release_1.4.0`) | **Proprietary.** © 2015-2022 PICO Technology Co., Ltd., all rights reserved; its [LICENSE.md](https://github.com/Pico-Developer/PICO-Unity-OpenXR-SDK/blob/3aa3e62bff41df618529eeb60ff02c29a515dafe/LICENSE.md) forbids dissemination or reproduction without PICO's prior written permission | **no** — managed assemblies, Java plugins, native libs and the `AUTH_CHECK` permission are stripped | yes — **needs PICO's written permission before distribution** |
+| PICO OpenXR Plugin `com.unity.xr.openxr.picoxr` | 1.4.1, git `Pico-Developer/PICO-Unity-OpenXR-SDK` @ `3aa3e62bff41df618529eeb60ff02c29a515dafe` (tag `release_1.4.0`) | **Proprietary.** © 2015-2022 PICO Technology Co., Ltd., all rights reserved; its [LICENSE.md](https://github.com/Pico-Developer/PICO-Unity-OpenXR-SDK/blob/3aa3e62bff41df618529eeb60ff02c29a515dafe/LICENSE.md) forbids dissemination or reproduction without PICO's prior written permission | **no** — the builder removes the package from the project for the Quest build, so none of its code, native or Java plugins, `Resources` assets, OpenXR feature objects or generated settings reach the APK (checked file by file, §6). `XRScanVendorPackageGuard` fails any other non-Pico Android build while the package is installed. | yes — its assemblies, native libraries, Java plugins, the `AUTH_CHECK` permission and the 108 files of its `Assets/Resources` (14 controller and hand FBX models, 33 textures, 10 shaders, 14 materials, 13 prefabs, animator controllers and avatar masks). **Needs PICO's written permission before distribution.** |
 
 ### 1.3 Assets
 
@@ -44,24 +45,28 @@ Licence abbreviations: **UCL** = [Unity Companion License](https://unity3d.com/l
 | `Assets/XRScan/Avatar/Models/CI_Companion.glb` | Companion Intelligence. Generated entirely by [`tools/avatar/build_ci_companion.py`](tools/avatar/build_ci_companion.py) (no imported meshes, textures, scans or fonts); its glTF `asset.copyright` reads "Copyright (c) 2026 LifeScope Inc. dba Companion Intelligence. All rights reserved." Proprietary ([LICENSE.md](LICENSE.md)). Blender, used to run the script, does not license its output ([blender.org/about/license](https://www.blender.org/about/license/)). | yes | yes |
 | uLipSync profile `uLipSync-Profile-Sample-Male.asset` (referenced by `AvatarLipSync`) | Part of the uLipSync package (MIT) | yes | yes |
 | Scenes, prefabs, scripts, materials and settings under `Assets/` | Companion Intelligence ([LICENSE.md](LICENSE.md)); Unity-generated settings files | yes | yes |
+| Render-pipeline and package assets: URP and SRP Core shaders (post-processing, VRS, fallback) and textures (film grain, blue noise, Bayer matrix, debug font, SMAA lookup tables), SRP Core's Rendering Debugger prefabs with the *Perfect DOS VGA 437* font, glTFast's glTF shader graph, Shader Graph's fallback shader | Unity packages (UCL; glTFast Apache-2.0). Third-party parts: SMAA (MIT, §5.1); the font has no stated licence (§4 item 6) | yes | yes |
+| `PerformanceTestRunInfo.json` (Unity version, build settings and the list of resolved packages) and `PerformanceTestRunSettings.json` | Written to `Assets/Resources` by the build hook of `com.unity.test-framework.performance` for the duration of every build. No third-party content. | yes | yes |
+| PICO SDK assets: controller and hand models, textures, shaders, materials, prefabs, animations from its `Assets/Resources`; `PXR_PlatformSetting.asset`, which its build preprocessor writes to `Assets/Resources` (and `PICOProjectSetting.asset` once its project settings are edited) | PICO, proprietary (§1.2) | **no** | yes |
 
-No third-party fonts, textures, audio clips or 3D models are shipped. The uLipSync `Samples~` (Unity-chan assets under the Unity-Chan License) are not imported into the project.
+Apart from the rows above, no third-party fonts, textures, audio clips or 3D models are shipped; each build's "Used Assets" report (§6) is the reference. The uLipSync `Samples~` (Unity-chan assets under the Unity-Chan License) are not imported into the project.
 
 ## 2. Development tools (never in a player)
 
 | Component | Version | Licence | Notes |
 |---|---|---|---|
-| MCP for Unity `com.coplaydev.unity-mcp` | 10.3.0, git `CoplayDev/unity-mcp` @ `aa5fc638d623f56178d50329d9ad8c541a57fe66` (tag `v10.3.0`, path `/MCPForUnity`) | MIT, © 2025 CoplayDev ([LICENSE](https://github.com/CoplayDev/unity-mcp/blob/aa5fc638d623f56178d50329d9ad8c541a57fe66/LICENSE)) | Edit-time bridge used with the Unity MCP tools (see `docs/HANDOFF.md`). `XRScanPlayerAssemblyFilter` keeps its `MCPForUnity.Runtime` assembly out of every player build. Its editor telemetry is on unless opted out: set `UNITY_MCP_DISABLE_TELEMETRY=1` (or `DISABLE_TELEMETRY` / `MCP_DISABLE_TELEMETRY`) or use its settings window. It does not start its bridge in batch mode unless `UNITY_MCP_ALLOW_BATCH` is set. |
-| Test Framework 1.6.0, Performance Testing 3.5.0 | — | UCL | Test assemblies are excluded from players. |
-| Custom NUnit `com.unity.ext.nunit` 2.0.5 | — | UPDL; NUnit (MIT) | Editor/test only. |
-| Rider 3.0.27, Visual Studio 2.0.22 IDE integrations | — | MIT | Editor only. |
-| Version Control (collab-proxy) 2.2.0, Editor Coroutines 1.1.0, Searcher 4.9.4, Mono.Cecil 1.11.6, URP Config 17.0.3 | — | UPDL / UCL; Mono.Cecil (MIT) | Editor only. |
+| MCP for Unity `com.coplaydev.unity-mcp` | 10.3.0, git `CoplayDev/unity-mcp` @ `aa5fc638d623f56178d50329d9ad8c541a57fe66` (tag `v10.3.0`, path `/MCPForUnity`) | MIT, © 2025 CoplayDev ([LICENSE](https://github.com/CoplayDev/unity-mcp/blob/aa5fc638d623f56178d50329d9ad8c541a57fe66/LICENSE)) | Edit-time bridge used with the Unity MCP tools (see `docs/HANDOFF.md`). The builder removes the package from the project for every player build, so none of it (not even script names) ships; `XRScanPlayerAssemblyFilter` drops its `MCPForUnity.Runtime` assembly from builds made any other way. Its editor telemetry is on unless opted out: set `UNITY_MCP_DISABLE_TELEMETRY=1` (or `DISABLE_TELEMETRY` / `MCP_DISABLE_TELEMETRY`) or use its settings window. It does not start its bridge in batch mode unless `UNITY_MCP_ALLOW_BATCH` is set. |
+| Test Framework `com.unity.test-framework`, Performance Testing `com.unity.test-framework.performance` | 1.6.0, 3.5.0 | UCL | Test assemblies are excluded from players. Performance Testing (pulled in by Collections) writes `PerformanceTestRunInfo.json` into `Assets/Resources` during each build (§1.3). |
+| Custom NUnit `com.unity.ext.nunit` | 2.0.5 | UPDL; NUnit (MIT) | Editor/test only. |
+| Rider `com.unity.ide.rider`, Visual Studio `com.unity.ide.visualstudio` IDE integrations | 3.0.27, 2.0.22 | MIT | Editor only. |
+| Version Control `com.unity.collab-proxy` 2.2.0, Editor Coroutines `com.unity.editorcoroutines` 1.1.0, Searcher `com.unity.searcher` 4.9.4, Mono.Cecil `com.unity.nuget.mono-cecil` 1.11.6 | see left | UPDL (Version Control), UCL (Editor Coroutines, Mono.Cecil package; Mono.Cecil itself MIT), Unity Companion Package License v1.0 (Searcher) | Editor only. |
 | Blender | 5.1 | GPL-2.0-or-later | Tool only: runs `tools/avatar/build_ci_companion.py` headless. Not distributed; its licence does not extend to generated output. |
 
 ## 3. Removed
 
 | Item | Why |
 |---|---|
+| Visual Scripting `com.unity.visualscripting` 1.9.1 | Unused: no script graph, state graph or code in the project refers to it. Its runtime assemblies still shipped in both APKs (`Unity.VisualScripting.Core`, `.Flow`, `.State`, `.Antlr3.Runtime`) together with third-party code whose notices the APKs would have had to carry: the Antlr 3 runtime (BSD; binary redistribution must reproduce its notice), Full Serializer, Ensure.That, NCalc and Deep Copy (MIT) and the AQN parser (Ms-PL). Removed from `Packages/manifest.json`; AR Foundation's optional Visual Scripting nodes are guarded by `VISUALSCRIPTING_1_8_OR_NEWER` and compile to an empty `Unity.XR.ARFoundation.VisualScripting` assembly without it. |
 | Ready Player Me Unity SDK `com.readyplayerme.core` (git `v7.4.0`), its `Assets/Ready Player Me` settings (`CoreSettings`, `AvatarLoaderSettings`), the `READY_PLAYER_ME` scripting define on every platform, and its `glTFastShaderVariantsURP` collection in Graphics Settings → Preloaded Shaders | Ready Player Me shut its services down on 31 January 2026 after its acquisition by Netflix ([PocketGamer.biz](https://www.pocketgamer.biz/netflix-acquires-avatar-creation-platform-ready-player-me/)) and its SDK repository is archived. Its assemblies (including Amplitude analytics loggers under `Runtime/Core/Scripts/Analytics`) shipped in the APK although no project code used them, and its `[InitializeOnLoad]` `OneTimeSetup` calls `AnalyticsEditorLogger.Enable()` — which writes `EnableAnalytics = true` — whenever its first-time-setup flag is not yet stored, i.e. on the first open of every fresh checkout (v7.4.0, [`OneTimeSetup.cs`](https://github.com/readyplayerme/rpm-unity-sdk-core/blob/v7.4.0/Editor/Core/Scripts/UI/EditorWindows/SetupGuide/OneTimeSetup.cs)), overriding the committed `EnableAnalytics: 0`. The SDK itself was MIT-licensed. glTFast, which it pulled in, is now a direct dependency. |
 | `Assets/XRScan/Avatar/Models/CI_Brad.glb`, `LiamCES.glb` | Third-party avatars: their glTF `asset` blocks read `"generator": "Ready Player Me"`, `"copyright": "Ready Player Me"`. Replaced by `CI_Companion.glb`. |
 | Previous `docs/images/ci_companion_avatar.png` | Screenshot of the Ready Player Me avatar; replaced by a render of `CI_Companion.glb`. |
@@ -69,11 +74,12 @@ No third-party fonts, textures, audio clips or 3D models are shipped. The uLipSy
 
 ## 4. Open items for the owner
 
-1. **PICO**: obtain PICO's written permission (or confirm that the PICO developer agreement grants it) before distributing the Pico APK, which must contain the PICO SDK.
+1. **PICO**: obtain PICO's written permission (or confirm that the PICO developer agreement grants it) before distributing the Pico APK, which must contain the PICO SDK: its code and native libraries and its controller and hand models, textures and shaders.
 2. **Meta**: the Quest APK contains Meta components under the Oculus SDK License Agreement; distribution through the Meta Horizon Store is governed by that agreement and the Meta developer terms.
-3. **Unused packages**: ARCore (`com.unity.xr.arcore`), Mock HMD, Visual Scripting and the Oculus XR Plugin add managed code to both APKs without being used on the headsets (their native/Java SDKs are already left out). Removing them from `Packages/manifest.json`, if no phone build is planned, shrinks the APK and the notices.
+3. **Unused packages**: ARCore (`com.unity.xr.arcore`), Mock HMD and the Oculus XR Plugin add managed code to both APKs without being used on the headsets (their native/Java SDKs are already left out). Removing them from `Packages/manifest.json`, if no phone build is planned, shrinks the APK and the notices.
 4. **Concept images** removed from `static/concepts` (see §3): confirm whether CI owns or licensed the photographs and avatar renders before restoring them.
 5. **Notices in the product**: surface §5 (and the full Apache-2.0, UCL/UPDL and Oculus SDK terms, by link or text) in the app or store listing.
+6. **Perfect DOS VGA 437 font**: SRP Core's Rendering Debugger UI (the `DebugUICanvas` prefabs it loads with `Resources.Load`) uses `PerfectDOSVGA437.ttf`, so the font ships in both APKs. Its name table credits "zeh" and `http://www.fatorcaos.com.br` but states no licence, its original readme states no terms either, and SRP Core's `THIRD PARTY NOTICES.md` does not list it; it reaches the project only under Unity's UCL for the package. It cannot be swapped out without forking SRP Core: confirm the licence with Unity (or the author), or accept the UCL grant.
 
 ## 5. Notices
 
@@ -86,8 +92,13 @@ The following components are licensed under the MIT License, reproduced once bel
 - Json.Net.Unity3D — Copyright (c) 2016 SaladLab
 - Newtonsoft.Json-for-Unity — Copyright (c) 2019 Kalle Jillheden (jilleJr)
 - com.newtonsoft.json — Copyright (c) 2019 Mike Wuetherick
+- webgl-noise (`Unity.Mathematics.noise`) — Copyright (C) 2011 by Ashima Arts (Simplex noise); Copyright (C) 2011-2016 by Stefan Gustavson (Classic noise and others)
+- SMAA (Universal RP) — Copyright (C) 2013 Jorge Jimenez, Jose I. Echevarria, Belen Masia, Fernando Navarro, Diego Gutierrez. Its licence adds: "As clarification, there is no requirement that the copyright notice and permission be included in binary distributions of the Software."
+- AMD FidelityFX FSR 1 (SRP Core `ffx_a.hlsl`, `ffx_fsr1.hlsl`) — Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved; `ffx_a.hlsl` also: Copyright (c) 2014 Michal Drobot (for concepts used in "FLOAT APPROXIMATIONS")
 - RadeonRays 4.1 — Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved.
-- Sobol sampler — Copyright (c) 2023 Leonhard Gruenschloss
+- Sobol sampler — Copyright (c) 2023 Leonhard Gruenschloss (as listed in SRP Core's notices; `SobolData.cs` reads Copyright (c) 2012 Leonhard Gruenschloss)
+- JsonCpp (inside the OpenXR loader `libopenxr_loader.so` of both APKs: the Khronos build from the OpenXR Plugin in Quest, PICO's build in Pico) — Copyright (c) 2007-2010 Baptiste Lepilleur and The JsonCpp Authors. Dedicated to the public domain where that is recognised, MIT otherwise ([LICENSE](https://github.com/KhronosGroup/OpenXR-SDK/blob/main/src/external/jsoncpp/LICENSE)).
+- Unity built-in shader source (URP `WavingGrass` / `WavingGrassBillboard` terrain shaders) — Copyright (c) 2016 Unity Technologies
 - musl — Copyright © 2005-2019 Rich Felker, et al.
 - mimalloc — Copyright (c) 2018-2021 Microsoft Corporation, Daan Leijen
 - MCP for Unity (development tool, not shipped) — Copyright (c) 2025 CoplayDev
@@ -116,16 +127,16 @@ SOFTWARE.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use these files except in compliance with the License. You may obtain a copy of the License at <https://www.apache.org/licenses/LICENSE-2.0> (a verbatim copy also ships in the glTFast package's `LICENSE.md`). Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 
-None of these components distributes a `NOTICE` file, so there is no NOTICE text to carry forward; their copyright notices are:
+None of these components distributes a `NOTICE` file (the glTFast package has none; the root of [OpenXR-SDK-Source](https://github.com/KhronosGroup/OpenXR-SDK-Source) has `LICENSE`, `LICENSES/` and `COPYING.adoc` but no `NOTICE`), so there is no NOTICE text to carry forward; their copyright notices are:
 
 - Unity glTFast — "Unity glTFast copyright © 2023 Unity Technologies and the Unity glTFast authors"
-- Khronos OpenXR loader (OpenXR-SDK-Source, bundled by the OpenXR and Meta OpenXR packages) — "Copyright © 2014-2022, The Khronos Group Inc."
-- ArmModel.cs, SwingArmModel.cs, TransitionArmModel.cs (XR Legacy Input Helpers) — "Copyright 2016 Google Inc. All rights reserved."
+- Khronos OpenXR loader (OpenXR-SDK-Source, bundled by the OpenXR and Meta OpenXR packages) — "Copyright © 2014-2022, The Khronos Group Inc." (the loader sources are dual-licensed `Apache-2.0 OR MIT` per the SDK's `COPYING.adoc`)
+- ArmModel.cs, SwingArmModel.cs, TransitionArmModel.cs (XR Legacy Input Helpers) — "Copyright 2016 Google Inc. All rights reserved." / "Copyright 2017 Google Inc. All rights reserved."
 - LLVM (Burst compiler) — Apache-2.0 WITH LLVM-exception; the exception waives attribution for compiled output.
 
 ### 5.3 Unity Companion License and Unity Package Distribution License
 
-Each Unity package states its own licence in its `LICENSE.md`, for example: "com.unity.xr.openxr copyright © 2025 Unity Technologies ApS. Source code of the package is licensed under the Unity Companion License …; otherwise licensed under the Unity Package Distribution License". The UCL permits use of the package only in Unity-dependent projects; both licences are published at the links at the top of this file. The packages' own third-party notices are in each package's `Third Party Notices.md` (copied into `Library/PackageCache/<package>/` on import).
+Each Unity package states its own licence in its `LICENSE.md`, for example: "com.unity.xr.openxr copyright © 2025 Unity Technologies ApS. Source code of the package is licensed under the Unity Companion License …; otherwise licensed under the Unity Package Distribution License". The UCL permits use of the package only in Unity-dependent projects; both licences are published at the links at the top of this file. The packages' own third-party notices are in each package's `Third Party Notices.md` (copied into `Library/PackageCache/<package>/` on import); the components from them that ship are listed in §1.1 and reproduced in this section.
 
 ### 5.4 Meta (Oculus SDK License Agreement)
 
@@ -170,13 +181,93 @@ PICO OpenXR Plugin (Pico APK only) — Copyright © 2015-2022 PICO Technology Co
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   ```
+- **ACES** (`ACES.hlsl`, SRP Core; used by URP's tonemapping and colour-grading shaders):
+
+  ```
+  Academy Color Encoding System (ACES) software and tools are provided by the
+  Academy under the following terms and conditions: A worldwide, royalty-free,
+  non-exclusive right to copy, modify, create derivatives, and use, in source and
+  binary forms, is hereby granted, subject to acceptance of this license.
+
+  Copyright 2015 Academy of Motion Picture Arts and Sciences (A.M.P.A.S.).
+  Portions contributed by others as indicated. All rights reserved.
+
+  Performance of any of the aforementioned acts indicates acceptance to be bound
+  by the following terms and conditions:
+
+  * Copies of source code, in whole or in part, must retain the above copyright
+  notice, this list of conditions and the Disclaimer of Warranty.
+
+  * Use in binary form must retain the above copyright notice, this list of
+  conditions and the Disclaimer of Warranty in the documentation and/or other
+  materials provided with the distribution.
+
+  * Nothing in this license shall be deemed to grant any rights to trademarks,
+  copyrights, patents, trade secrets or any other intellectual property of
+  A.M.P.A.S. or any contributors, except as expressly stated herein.
+
+  * Neither the name "A.M.P.A.S." nor the name of any other contributors to this
+  software may be used to endorse or promote products derivative of or based on
+  this software without express prior written permission of A.M.P.A.S. or the
+  contributors, as appropriate.
+
+  This license shall be construed pursuant to the laws of the State of
+  California, and any disputes related thereto shall be subject to the
+  jurisdiction of the courts therein.
+
+  Disclaimer of Warranty: THIS SOFTWARE IS PROVIDED BY A.M.P.A.S. AND CONTRIBUTORS
+  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+  NON-INFRINGEMENT ARE DISCLAIMED. IN NO EVENT SHALL A.M.P.A.S., OR ANY
+  CONTRIBUTORS OR DISTRIBUTORS, BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+  SPECIAL, EXEMPLARY, RESITUTIONARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+  ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+  WITHOUT LIMITING THE GENERALITY OF THE FOREGOING, THE ACADEMY SPECIFICALLY
+  DISCLAIMS ANY REPRESENTATIONS OR WARRANTIES WHATSOEVER RELATED TO PATENT OR
+  OTHER INTELLECTUAL PROPERTY RIGHTS IN THE ACADEMY COLOR ENCODING SYSTEM, OR
+  APPLICATIONS THEREOF, HELD BY PARTIES OTHER THAN A.M.P.A.S.,WHETHER DISCLOSED OR
+  UNDISCLOSED.
+  ```
+- **xxHash** (basis of `Unity.Collections.xxHash3`; Burst also lists it):
+
+  ```
+  Copyright (c) 2012-2021, Yann Collet All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without modification,
+  are permitted provided that the following conditions are met:
+
+  * Redistributions of source code must retain the above copyright notice, this
+    list of conditions and the following disclaimer.
+
+  * Redistributions in binary form must reproduce the above copyright notice, this
+    list of conditions and the following disclaimer in the documentation and/or
+    other materials provided with the distribution.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+  ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  ```
+- **Float formatting in Burst** (`BurstString.Float.cs`) — "Copyright (c) 2014 Ryan Juckett, http://www.ryanjuckett.com/", zlib licence (acknowledgment in product documentation appreciated, not required).
 - **Bullet Physics SDK** (SRP Core) — zlib License.
+- **Clipper 6.4.2** (Universal RP 2D renderer) — "Copyright: Angus Johnson 2010-2017", Boost Software License 1.0 (notice required in source distributions only).
 - **SLEEF** (Burst) — Boost Software License 1.0.
-- Visual Scripting's bundled components — see that package's `Third Party Notices.md`.
 
 ## 6. How this was verified
 
-- **Licences** were read from each package's `LICENSE.md` / `Third Party Notices.md` at the locked versions (the copies Unity imports into `Library/PackageCache`) and, for git packages, from the upstream repository at the pinned commit (links above). The Ready Player Me shutdown date is from the PocketGamer.biz report linked in §3.
+- **Licences** were read from each package's `LICENSE.md` / `Third Party Notices.md` at the locked versions (the copies Unity imports into `Library/PackageCache`), from the licence headers of the third-party source files inside the shipped packages' runtime folders (which is how webgl-noise, xxHash in Collections, SMAA, FidelityFX FSR 1, ACES, Clipper, the MIT-licensed grass shaders and Burst's float formatter were found; their packages' notices files omit them. Shader-library files are listed when a shader in the build report includes them, e.g. FSR 1 but not the unused CAS, LPM and STP files), from the strings of the shipped native libraries (JsonCpp in `libopenxr_loader.so`) and, for git packages, from the upstream repository at the pinned commit (links above). The Ready Player Me shutdown date is from the PocketGamer.biz report linked in §3.
 - **Avatar provenance**: the glTF JSON `asset` block and `extras` of every GLB were inspected. `CI_Brad.glb` and `LiamCES.glb` declared `"generator": "Ready Player Me"`, `"copyright": "Ready Player Me"`; `CI_Companion.glb` declares the Companion Intelligence copyright and its scene `extras` name the generator script and licence. `AvatarModelTests` (EditMode) fails if any GLB in `Assets/XRScan/Avatar/Models` lacks a copyright or names Ready Player Me.
-- **Quest APK** (`XRScanBuilder.BuildQuest`, Unity 6000.3.19f1, 2026-11-12, 47 MB): `assets/bin/Data/ScriptingAssemblies.json` lists 145 assemblies and none from MCP for Unity, the PICO SDK or Ready Player Me (the build log shows `XRScanPlayerAssemblyFilter` dropping `MCPForUnity.Runtime`, `PICO.Platform`, `PICO.TobSupport`, `Unity.XR.OpenXR.Features.PICOSupport` and `Unity.XR.OpenXRPico`); the only "Pico" string in the IL2CPP metadata is the project's own `XRVendor.Pico` enum value. Native libraries: `libunity`, `libil2cpp`, `libmain`, `lib_burst_generated`, `libUnityOpenXR`, `libUnityARFoundationMeta` and `libopenxr_loader` (1,597,864 bytes — the Khronos loader from `com.unity.xr.openxr`'s `openxr_loader.aar`, not PICO's 1,141,360-byte build). `classes.dex` holds only `com.unity3d.*`, `com.unity.oculus.OculusUnity` and `org.khronos.openxr` vendor classes; the manifest has no `pvr.*` entries or PICO permissions. The Gradle project's `unityLibrary/libs` contained only `openxr_loader.aar`, `unity-classes.jar` and `unityandroidpermissions.aar` after `XRScanNativeLibExcluder` removed PICO's six `.aar`/`.jar` plugins.
-- **Pico APK** (`XRScanBuilder.BuildPico`, same day, 48 MB): the PICO SDK is intact — `PICO.Platform`, `PICO.TobSupport`, `Unity.XR.OpenXR.Features.PICOSupport` and `Unity.XR.OpenXRPico` among 149 assemblies, PICO's native libraries (`libopenxr_pico`, `libPICO_TOBAPI`, `libpvrcapturelib`, `libpxrplatformloader`, `libCameraRenderingPlugin`) and its 1,141,360-byte `libopenxr_loader`, its `com.pvr.*` / `com.picoxr.*` Java classes and the `AUTH_CHECK` permission. `MCPForUnity.Runtime` is the only assembly the filter removed; `libUnityARFoundationMeta.so` and `libUnityMockHMD.so` are excluded. No Ready Player Me or MCP for Unity content.
+- **APK contents**: `python tools/apk/scan_apk.py <apk> --target quest|pico` decompresses every file in an APK (managed metadata, native libraries, Dex, manifest and Unity's serialized data: scenes, `Resources`, settings) and searches it for names only the PICO SDK, MCP for Unity, Ready Player Me or Visual Scripting contain. Unity's build report ("Used Assets and files from the Resources folder" in the Editor log) lists every asset a build packed. A check of assemblies alone (`ScriptingAssemblies.json`, IL2CPP metadata, `unzip -l`) is not enough: an earlier Quest APK passed it while it still carried PICO's `Resources` assets, its OpenXR feature objects and script names.
+- **Quest APK** (`XRScanBuilder.BuildQuest`, headless, Unity 6000.3.19f1, 2026-11-12, 44,418,779 bytes): the log shows `XRScanBuildPackages` removing `com.coplaydev.unity-mcp` and `com.unity.xr.openxr.picoxr` before the build (71 → 69 registered packages) and restoring `Packages/manifest.json`, the lock file and the OpenXR settings afterwards; `XRScanPlayerAssemblyFilter` then found nothing left to drop. The build report lists no `Packages/com.unity.xr.openxr.picoxr/` asset (the previous Quest build listed 108, 6.1 MB) and no PICO-generated file; the OpenXR settings object shrank from 11.9 kB to 8.3 kB without PICO's feature objects. `scan_apk.py --target quest` finds no PICO SDK, MCP for Unity, Ready Player Me or Visual Scripting content in any of the APK's 87 files; the previous Quest APK (49,443,731 bytes, assembly filtering only) fails the same scan with 634 PICO matches in 78 files, 15 MCP for Unity matches and 3,303 Visual Scripting matches. `ScriptingAssemblies.json` lists 141 assemblies (145 before; the four Visual Scripting assemblies are gone). Native libraries: `libunity`, `libil2cpp`, `libmain`, `lib_burst_generated`, `libUnityOpenXR`, `libUnityARFoundationMeta` and `libopenxr_loader` (1,597,864 bytes, the Khronos loader from `com.unity.xr.openxr`'s `openxr_loader.aar`, not PICO's 1,141,360-byte build). `classes.dex` has no `com.pvr.*` or `com.picoxr.*` classes: apart from the app's own, its classes are Unity's (`com.unity3d.*`, `com.unity.xr.*`, `com.UnityTechnologies.XR.*`, `bitter.jnibridge`, `com.unity.oculus.OculusUnity`, and `com.example.unityandroidpermissions` from the ARCore XR Plugin's `unityandroidpermissions.aar`) and the Khronos loader's `org.khronos.openxr`; the manifest has no `pvr.*` entries or PICO permissions.
+- **Pico APK** (`XRScanBuilder.BuildPico`, headless, same day, 48,900,959 bytes): the log shows `XRScanBuildPackages` removing only `com.coplaydev.unity-mcp` (71 → 70 registered packages) and restoring the manifest and lock file afterwards. The PICO SDK is intact: the build report lists the 108 files of its `Assets/Resources` (6,256.7 kB) and the generated `PXR_PlatformSetting.asset`; `ScriptingAssemblies.json` lists 145 assemblies (149 before; the four Visual Scripting ones are gone) including `PICO.Platform`, `PICO.TobSupport`, `Unity.XR.OpenXR.Features.PICOSupport` and `Unity.XR.OpenXRPico`; the native libraries include PICO's `libopenxr_pico`, `libPICO_TOBAPI`, `libpvrcapturelib`, `libpxrplatformloader`, `libCameraRenderingPlugin` and its 1,141,360-byte `libopenxr_loader`, while `libUnityARFoundationMeta.so` and `libUnityMockHMD.so` are excluded. `scan_apk.py --target pico` reports the expected PICO content and no MCP for Unity, Ready Player Me or Visual Scripting content in any of the 201 files.

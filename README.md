@@ -20,7 +20,7 @@ An embodied mixed-reality companion for **Meta Quest 3** and **Pico** — a spat
 ## Status
 
 - **Unity 6000.3.19f1 (6.3 LTS)** · URP · OpenXR-first (Meta Quest + PICO feature groups)
-- All assemblies compile green; **105 automated tests** (102 EditMode + 3 PlayMode), run headless by [CI](docs/CI.md) on every pull request
+- All assemblies compile green; **106 automated tests** (103 EditMode + 3 PlayMode), run headless by [CI](docs/CI.md) on every pull request
 - Phases 1–2 verified running in-Editor; Phases 3–6 implemented (on-device ML / device-only paths are scaffolded behind interfaces)
 
 ## Why the rebuild
@@ -85,7 +85,7 @@ Endpoints and API keys are read from `ServerConfig` / `LlmConfig` / `VoiceConfig
 1. Open with **Unity 6000.3.19f1** (with Android Build Support). Packages resolve automatically (uLipSync, PICO OpenXR and MCP for Unity are pulled via git at pinned commits; glTFast and the rest come from the Unity registry).
 2. Open `Assets/XRScan/App/Scenes/XRScan_Main.unity` and press **Play** — it runs entirely on mocks (mock camera → detector → pin → avatar looks + speaks; push-to-talk voice Q&A). No device or server required.
 3. To use real backends, set `useMocks = false` on `AppBootstrap` and fill in `ServerConfig` / `LlmConfig` / `VoiceConfig`.
-4. Build for Quest 3 / Pico with **XRScan → Build → Quest 3** or **Pico** (one APK per headset). Each applies Android, IL2CPP, ARM64, Vulkan, min SDK 32 and switches on that headset's OpenXR features; see [docs/BUILD.md](docs/BUILD.md).
+4. Build for Quest 3 / Pico with **XRScan → Build → Quest 3** or **Pico** (one APK per headset; see [docs/BUILD.md](docs/BUILD.md)). Each applies the Android settings (IL2CPP, ARM64, Vulkan, min SDK 32), switches on that headset's OpenXR feature group and builds the APK from a project without the vendor packages it must not contain.
 
 ## Avatars
 
@@ -103,13 +103,15 @@ To put a different model on the scene avatar, keep its behaviour components and 
 
 ## Licensing
 
-The project is proprietary ([LICENSE.md](LICENSE.md)). Every bundled package and asset, its licence, which APK it ships in, and the notices a release must carry are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); update it whenever a dependency or asset changes. Quest builds leave out the PICO SDK (its licence forbids redistribution without PICO's written permission) and every build leaves out the MCP for Unity editor tooling — see [docs/BUILD.md](docs/BUILD.md#what-each-apk-contains).
+The project is proprietary ([LICENSE.md](LICENSE.md)). Every bundled package and asset, its licence, which APK it ships in, and the notices a release must carry are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); update it whenever a dependency or asset changes (`ThirdPartyNoticesTests` fails while a resolved package is missing from it).
+
+The PICO SDK's licence forbids redistributing any of its material without PICO's written permission, and Unity packs an installed package's `Resources` (PICO's controller and hand models, textures, shaders) and settings objects into every player, not just its code. So **XRScan → Build** takes the PICO SDK out of the project for the Quest build, and the MCP for Unity editor tooling out for every build, then puts them back; a Quest build started any other way fails while the PICO SDK is installed. The Pico APK necessarily contains the PICO SDK and needs PICO's written permission before it is distributed. Check an APK with `python tools/apk/scan_apk.py <apk> --target quest|pico` — see [docs/BUILD.md](docs/BUILD.md#what-each-apk-contains).
 
 ## Tests
 
-105 tests, run from **Window → General → Test Runner** or headless:
+106 tests, run from **Window → General → Test Runner** or headless:
 
-- `Assets/XRScan/Tests/EditMode` — 17 tests: bounding-box math, scan-ray math (camera intrinsics → world ray), the spatial-pin store (dedup + events), the mock-detector contract, and the avatar model contract (`AvatarModelTests`: every lip-sync viseme present, rest pose at zero weights, a `Head` bone, and no Ready Player Me provenance in any shipped GLB).
+- `Assets/XRScan/Tests/EditMode` — 18 tests: bounding-box math, scan-ray math (camera intrinsics → world ray), the spatial-pin store (dedup + events), the mock-detector contract, the avatar model contract (`AvatarModelTests`: every lip-sync viseme present, rest pose at zero weights, a `Head` bone, and no Ready Player Me provenance in any shipped GLB), and the licence inventory (`ThirdPartyNoticesTests`: every package in `Packages/packages-lock.json` is listed in `THIRD_PARTY_NOTICES.md`).
 - `Assets/XRScan/Tests/Config` — 85 EditMode tests: endpoint URL policy, backend config resolution, the in-headset settings model, permission prompts and gates, scene wiring and the cleartext transport gates.
 - `Assets/XRScan/Tests/PlayMode` — 3 scanning-pipeline tests: a detection at a known screen position must land a pin at a known world position, and repeated scans of one object must dedup to one pin.
 
