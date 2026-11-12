@@ -20,12 +20,12 @@ An embodied mixed-reality companion for **Meta Quest 3** and **Pico** — a spat
 ## Status
 
 - **Unity 6000.3.19f1 (6.3 LTS)** · URP · OpenXR-first (Meta Quest + PICO feature groups)
-- All assemblies compile green; **10 EditMode tests passing**
+- All assemblies compile green; **16 automated tests** (13 EditMode + 3 PlayMode), run headless by [CI](docs/CI.md) on every pull request
 - Phases 1–2 verified running in-Editor; Phases 3–6 implemented (on-device ML / device-only paths are scaffolded behind interfaces)
 
 ## Why the rebuild
 
-The previous prototype targeted a since-broken toolchain. The full Meta XR SDK, UnityGLTF, and NaughtyAttributes do **not** compile on Unity 6.4/6.5 (a hard `CS0619` on `Object.GetInstanceID()`), and those are non-LTS releases. This rebuild targets **Unity 6.3 LTS** (supported to Dec 2027, validated by every vendor SDK in the stack) and uses the **OpenXR** path — `com.unity.xr.meta-openxr` for Quest and the PICO OpenXR SDK for Pico — so a single codebase produces one cross-vendor APK.
+The previous prototype targeted a since-broken toolchain. The full Meta XR SDK, UnityGLTF, and NaughtyAttributes do **not** compile on Unity 6.4/6.5 (a hard `CS0619` on `Object.GetInstanceID()`), and those are non-LTS releases. This rebuild targets **Unity 6.3 LTS** (supported to Dec 2027, validated by every vendor SDK in the stack) and uses the **OpenXR** path — `com.unity.xr.meta-openxr` for Quest and the PICO OpenXR SDK for Pico — so a single codebase builds for both headsets. Each headset gets its own APK, because a build turns on only that vendor's OpenXR features (see [docs/BUILD.md](docs/BUILD.md)).
 
 
 ## Features
@@ -63,7 +63,7 @@ OpenXR-first: the C# never branches per vendor — only the enabled OpenXR featu
 | `XRScan.Mapping` | `ViewportRaycaster`, `SpatialPinManager` (2D detection → world pins) |
 | `XRScan.Avatar` | Avatar load, gaze, gesture, viseme lip-sync, NavMesh locomotion |
 | `XRScan.Voice` | STT / TTS (cloud + on-device Sentis/Piper scaffolds) |
-| `XRScan.Llm` | Pluggable LLM backends (Ollama / OpenAI / Claude / CI server) |
+| `XRScan.Llm` | LLM backend behind `ILlmBackend`: `OllamaBackend` (text + vision). OpenAI / Claude / CI-server backends are not written yet |
 | `XRScan.Agent` | `ConversationOrchestrator` + `SceneKnowledgeBase` (grounds the LLM in scanned pins) |
 | `XRScan.Export` | glTF export via glTFast + server sync |
 | `XRScan.App` | `AppBootstrap` startup wiring + `ScanController` |
@@ -73,19 +73,19 @@ OpenXR-first: the C# never branches per vendor — only the enabled OpenXR featu
 
 Every stage is an interface — swap the implementation via config, no recompile:
 
-- `IObjectDetector` → remote CV server **or** on-device Sentis (auto-selected by `DetectorFactory`)
-- `ILlmBackend` → Ollama / OpenAI / Claude / Companion Intelligence server
-- `ISpeechToText` / `ITextToSpeech` → cloud Whisper/TTS **or** on-device Sentis Whisper / Piper
+- `IObjectDetector` → remote CV server (`RemoteCvDetector`) **or** on-device Sentis (`SentisYoloDetector`, a scaffold until a YOLO model is wired), auto-selected by `DetectorFactory`
+- `ILlmBackend` → Ollama (`OllamaBackend`), or `MockLlmBackend` in mock mode. OpenAI, Claude and the Companion Intelligence server would each be another `ILlmBackend` implementation; none exists yet
+- `ISpeechToText` / `ITextToSpeech` → cloud Whisper / TTS over OpenAI-compatible endpoints (`CloudWhisperStt`, `CloudTts`; the Companion Intelligence server can stand in) **or** on-device Sentis Whisper / Piper (scaffolds, no models committed)
 - `ICameraProvider` → Quest passthrough (AR Foundation) with a Pico/desktop fallback
 
 Endpoints and API keys are read from `ServerConfig` / `LlmConfig` / `VoiceConfig` ScriptableObjects via PlayerPrefs / environment variables — **never committed**.
 
 ## Getting started
 
-1. Open with **Unity 6000.3.19f1** (with Android Build Support). Packages resolve automatically (RPM, uLipSync, glTFast, PICO OpenXR are pulled via git).
+1. Open with **Unity 6000.3.19f1** (with Android Build Support). Packages resolve automatically (RPM, uLipSync, PICO OpenXR and the Unity MCP bridge are pulled via git; glTFast comes from the Unity registry as an RPM dependency).
 2. Open `Assets/XRScan/App/Scenes/XRScan_Main.unity` and press **Play** — it runs entirely on mocks (mock camera → detector → pin → avatar looks + speaks; push-to-talk voice Q&A). No device or server required.
 3. To use real backends, set `useMocks = false` on `AppBootstrap` and fill in `ServerConfig` / `LlmConfig` / `VoiceConfig`.
-4. Build for Quest 3 / Pico: Android, IL2CPP, ARM64, Vulkan, min SDK 32; enable the OpenXR loader + the relevant feature group under **Project Settings → XR Plug-in Management**.
+4. Build for Quest 3 / Pico with **XRScan → Build → Quest 3** or **Pico** (one APK per headset). Each applies Android, IL2CPP, ARM64, Vulkan, min SDK 32 and switches on that headset's OpenXR features; see [docs/BUILD.md](docs/BUILD.md).
 
 ## Avatars
 
@@ -93,7 +93,12 @@ RPM / Wolf3D GLB avatars live in `Assets/XRScan/Avatar/Models/` (glTFast imports
 
 ## Tests
 
-`Assets/XRScan/Tests/EditMode` — run from **Window → General → Test Runner**. 10 tests cover bounding-box math, the spatial-pin store (dedup + events), and the detector contract.
+16 tests, run from **Window → General → Test Runner** or headless:
+
+- `Assets/XRScan/Tests/EditMode` — 13 tests: bounding-box math, scan-ray math (camera intrinsics → world ray), the spatial-pin store (dedup + events), and the mock-detector contract.
+- `Assets/XRScan/Tests/PlayMode` — 3 scanning-pipeline tests: a detection at a known screen position must land a pin at a known world position, and repeated scans of one object must dedup to one pin.
+
+[CI](docs/CI.md) runs both suites on every pull request, then builds the Quest APK. The same commands work locally (listed in docs/CI.md).
 
 ---
 
