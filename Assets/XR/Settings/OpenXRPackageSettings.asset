@@ -296,7 +296,7 @@ MonoBehaviour:
   required: 0
   customRuntimeLoaderName: 
   m_CameraImageSupport: 1
-  m_PassthroughPreSplashScreen: 0
+  m_PassthroughPreSplashScreen: 1
 --- !u!114 &-7139164375216182908
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -240,20 +240,19 @@ namespace XRScan.EditorTools
                     changed++;
                 }
 
-                // Quest passthrough scanning needs CPU camera images from the Meta AR camera
-                // feature. Turning this on is also what makes com.unity.xr.meta-openxr add the
-                // horizonos.permission.HEADSET_CAMERA permission for us. Reflection keeps this
-                // assembly free of a hard meta-openxr dependency.
+                // The Meta AR camera feature, on for Quest builds only:
+                //  - cameraImageSupportEnabled: passthrough scanning needs CPU camera images. Turning
+                //    this on is also what makes com.unity.xr.meta-openxr add the
+                //    horizonos.permission.HEADSET_CAMERA permission for us.
+                //  - passthroughPreSplashScreen: the companion is a passthrough MR app, so the headset
+                //    shows passthrough instead of its opaque loading screen before Unity's splash
+                //    (meta-openxr adds the com.oculus.ossplash.background = passthrough-contextual
+                //    meta-data to the manifest).
+                // Reflection keeps this assembly free of a hard meta-openxr dependency.
                 if (target && n.EndsWith("ARCameraFeature", System.StringComparison.Ordinal))
                 {
-                    var prop = f.GetType().GetProperty("cameraImageSupportEnabled");
-                    if (prop != null && prop.CanWrite && prop.PropertyType == typeof(bool)
-                        && !(bool)prop.GetValue(f))
-                    {
-                        prop.SetValue(f, true);
-                        UnityEditor.EditorUtility.SetDirty(f);
-                        changed++;
-                    }
+                    changed += EnableBoolProperty(f, "cameraImageSupportEnabled");
+                    changed += EnableBoolProperty(f, "passthroughPreSplashScreen");
                 }
             }
 
@@ -263,6 +262,21 @@ namespace XRScan.EditorTools
                 UnityEditor.AssetDatabase.SaveAssets();
             }
             Debug.Log($"[XRScanBuilder] OpenXR features configured for {(quest ? "Quest" : "Pico")} ({changed} toggled).");
+        }
+
+        /// <summary>Sets a bool property of an OpenXR feature to true; returns 1 when that changed it.</summary>
+        private static int EnableBoolProperty(UnityEngine.XR.OpenXR.Features.OpenXRFeature feature, string property)
+        {
+            var prop = feature.GetType().GetProperty(property);
+            if (prop == null || !prop.CanWrite || prop.PropertyType != typeof(bool))
+            {
+                Debug.LogWarning($"[XRScanBuilder] {feature.GetType().Name} has no writable bool '{property}'; it was not enabled.");
+                return 0;
+            }
+            if ((bool)prop.GetValue(feature)) return 0;
+            prop.SetValue(feature, true);
+            UnityEditor.EditorUtility.SetDirty(feature);
+            return 1;
         }
 
         /// <summary>Keeps exactly one of the platform defines, removing the other.</summary>

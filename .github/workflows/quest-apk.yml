@@ -194,6 +194,7 @@ jobs:
           if [ -z "$aapt2" ]; then echo "aapt2 not found in the Unity image" >&2; exit 1; fi
           "$aapt2" dump badging "$1" || true
           "$aapt2" dump permissions "$1" || true
+          "$aapt2" dump xmltree --file AndroidManifest.xml "$1" || true
           SH
           image=""
           while read -r ref; do
@@ -218,6 +219,10 @@ jobs:
             expect "name='horizonos\.permission\.HEADSET_CAMERA'" "Missing horizonos.permission.HEADSET_CAMERA (comes from the Meta AR camera feature)"
             expect "name='com\.oculus\.permission\.USE_SCENE'" "Missing com.oculus.permission.USE_SCENE (comes from com.unity.xr.meta-openxr)"
             reject "com\.pvr\.tobactivate\.permission\.AUTH_CHECK" "PICO permission com.pvr.tobactivate.permission.AUTH_CHECK is in the Quest APK"
+            # Passthrough before the splash screen (Meta camera feature, Passthrough Pre Splash Screen).
+            if ! grep -A 2 '"com\.oculus\.ossplash\.background"' <<< "$manifest" | grep -q '"passthrough-contextual"'; then
+              errors+=("Missing meta-data com.oculus.ossplash.background = passthrough-contextual (Passthrough Pre Splash Screen)")
+            fi
           fi
 
           {

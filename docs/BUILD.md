@@ -49,7 +49,7 @@ Unity.exe -batchmode -projectPath . -buildTarget Android -executeMethod XRScan.E
 
 From Player Settings: **App id** `com.companionintelligence.xrscan`, and no custom keystore, so APKs are signed with Unity's debug key. That is fine for sideloading but not for a store upload.
 
-**XR Plug-in Management** (Project Settings): Android uses the OpenXR loader only. Both vendors' OpenXR feature groups are installed, and the build turns on one of them as described above. For Quest builds, `XRScanBuilder` also enables CPU camera images on the Meta AR camera feature (`ARCameraFeature.cameraImageSupportEnabled`), which the scanner needs.
+**XR Plug-in Management** (Project Settings): Android uses the OpenXR loader only. Both vendors' OpenXR feature groups are installed, and the build turns on one of them as described above. For Quest builds, `XRScanBuilder` also enables two options of the Meta AR camera feature (**Meta Quest: Camera (Passthrough)**): CPU camera images (`cameraImageSupportEnabled`), which the scanner needs, and **Passthrough Pre Splash Screen** (`passthroughPreSplashScreen`), so the app starts in passthrough instead of the headset's opaque loading screen. The committed OpenXR settings have both on.
 
 **Permissions:** `XRScanManifestPostProcessor` adds `android.permission.RECORD_AUDIO` (microphone for speech-to-text) to the generated manifest. It is merge-safe and never overwrites a hand-authored manifest. It deliberately does not add the Meta permissions. `com.unity.xr.meta-openxr` injects `horizonos.permission.HEADSET_CAMERA` (Passthrough Camera API) and `com.oculus.permission.USE_SCENE` (scene understanding) itself, gated on its AR features, so they only appear in Quest builds. On every build except Pico the post-processor also removes the PICO permission `com.pvr.tobactivate.permission.AUTH_CHECK`, which PICO's `tob_api` library merges in.
 
@@ -93,6 +93,7 @@ A correct **Quest** build reports:
 - `package: com.companionintelligence.xrscan`, `minSdkVersion:'32'`, `targetSdkVersion:'34'`, `native-code: 'arm64-v8a'`
 - `android.permission.RECORD_AUDIO` (added by the post-processor) plus `horizonos.permission.HEADSET_CAMERA` and `com.oculus.permission.USE_SCENE` (from `com.unity.xr.meta-openxr`, because `XRScanBuilder` turns on `ARCameraFeature.cameraImageSupportEnabled`, which is also what makes CPU passthrough-camera images available to the scanner)
 - OpenXR wiring: `org.khronos.openxr.permission.OPENXR`, and the Meta entries `com.oculus.feature.PASSTHROUGH` / `com.oculus.intent.category.VR` / `com.oculus.vr.focusaware`
+- the application meta-data `com.oculus.ossplash.background` = `passthrough-contextual` (passthrough before the splash screen). `badging` does not show meta-data; read it with `%BT%\aapt2 dump xmltree --file AndroidManifest.xml Builds\CISpatialCompanion-Quest.apk`
 - no `com.pvr.tobactivate.permission.AUTH_CHECK`, and no PICO or Mock HMD libraries under `lib/arm64-v8a/`
 
 A correct **Pico** build has `RECORD_AUDIO` + `com.pvr.tobactivate.permission.AUTH_CHECK` and `pvr.*` / `enable_scene_anchor` manifest entries, and **must not** contain the Meta-only permissions above. Verified: the two APKs' manifests differ exactly along these lines.
