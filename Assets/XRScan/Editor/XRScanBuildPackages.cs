@@ -124,6 +124,11 @@ namespace XRScan.EditorTools
                            "Wait for it to finish, or delete that file after restoring Packages/manifest.json.");
                 return;
             }
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                Fail(null, "Exit Play mode before building.");
+                return;
+            }
 
             var manifest = File.ReadAllText(ManifestPath);
             var remove = PackagesToRemoveFor(pico).Where(p => InManifest(manifest, p)).ToArray();
