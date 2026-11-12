@@ -81,9 +81,10 @@ The APK is signed with Unity's debug key, because no release keystore is configu
 
 ## Quest APK checks
 
-`XRScanBuilder` logs a failed build as an error but does not make the editor exit with a failure code, so the APK job checks the APK itself. It fails when any of these is not true:
+The build step runs the editor without `-quit` (game-ci's `manualExit: true`): `XRScanBuilder` takes the PICO SDK and MCP for Unity out of the project before the Quest build, which needs a script reload that `-quit` would cut short, and exits by itself once the build has ended and the project files are restored. It exits with code 1, failing the step, when the build fails, throws or writes no APK. The `Verify the APK` step then checks what was packaged and fails when any of these is not true:
 
 - `Builds/CISpatialCompanion-Quest.apk` exists and is not empty.
+- `tools/apk/scan_apk.py --target quest` finds no PICO SDK, MCP for Unity, Ready Player Me or Visual Scripting content in any file of the APK, serialized assets included.
 - Native libraries are ARM64 only. `libil2cpp.so`, `libunity.so` and `libopenxr_loader.so` are present, and none of the PICO or Mock HMD libraries that `XRScanNativeLibExcluder` strips from Quest builds are.
 - The manifest, read with `aapt2` from the Android SDK inside the Unity image, has package `com.companionintelligence.xrscan`, minimum SDK 32, native code `arm64-v8a` only, the permissions `android.permission.RECORD_AUDIO`, `horizonos.permission.HEADSET_CAMERA` and `com.oculus.permission.USE_SCENE`, and not the PICO permission `com.pvr.tobactivate.permission.AUTH_CHECK`.
 
@@ -107,15 +108,15 @@ To update an action, pick its new release, look up the commit (`gh api repos/<ow
 
 ## Running the same jobs locally
 
-From the repository root, with the editor from `ProjectSettings/ProjectVersion.txt` (do not add `-quit` to a test run; the test runner exits by itself):
+From the repository root, with the editor from `ProjectSettings/ProjectVersion.txt` (do not add `-quit` to any of these: the test runner and the builder exit by themselves):
 
 ```
 Unity -batchmode -projectPath . -runTests -testPlatform EditMode -testResults results/editmode-results.xml -logFile results/editmode.log
 Unity -batchmode -projectPath . -runTests -testPlatform PlayMode -testResults results/playmode-results.xml -logFile results/playmode.log
-Unity -quit -batchmode -projectPath . -buildTarget Android -executeMethod XRScan.EditorTools.XRScanBuilder.BuildQuest -logFile results/quest-build.log
+Unity -batchmode -projectPath . -buildTarget Android -executeMethod XRScan.EditorTools.XRScanBuilder.BuildQuest -logFile results/quest-build.log
 ```
 
-`Unity` is the editor executable (`Unity.exe` on Windows). The build writes `Builds/CISpatialCompanion-Quest.apk`. Check that the file exists rather than relying on the exit code.
+`Unity` is the editor executable (`Unity.exe` on Windows). The build writes `Builds/CISpatialCompanion-Quest.apk` and exits with 0 when it was built, 1 when it failed. Then run `python tools/apk/scan_apk.py Builds/CISpatialCompanion-Quest.apk --target quest`.
 
 ## Troubleshooting
 

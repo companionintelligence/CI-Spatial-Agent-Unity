@@ -94,7 +94,7 @@ jobs:
     timeout-minutes: 150
     env:
       UNITY_VERSION: ${{ needs.setup.outputs.unity-version }}
-      # Output path hard-coded in XRScanBuilder (Builds/ is git-ignored).
+      # XRScanBuilder's default output path (Builds/ is git-ignored).
       APK: Builds/CISpatialCompanion-Quest.apk
     steps:
       - name: Check out
@@ -135,6 +135,11 @@ jobs:
           # XRScanBuilder sets its own player settings and output path; skip game-ci's
           # git-based versioning (it would need full history and a clean tree).
           versioning: None
+          # Run the editor without -quit. The builder takes the PICO SDK and MCP for Unity out of
+          # the project before the Quest build, which needs a script reload that -quit would cut
+          # short (the builder refuses to start when it sees -quit). It exits by itself once the
+          # build has ended and the project files are restored: 0 = built, 1 = failed.
+          manualExit: true
 
       - name: Save the Library cache
         if: steps.build.outcome == 'success' && steps.library.outputs.cache-hit != 'true'
@@ -144,8 +149,9 @@ jobs:
           key: ${{ steps.library.outputs.cache-primary-key }}
 
       - name: Verify the APK
-        # XRScanBuilder logs a failed build without making the editor exit non-zero, so the
-        # APK itself is the source of truth. The expectations mirror docs/BUILD.md.
+        # XRScanBuilder already exits non-zero (failing the build step) when the build fails or
+        # writes no APK; these checks verify what was packaged. The expectations mirror
+        # docs/BUILD.md.
         run: |
           if [[ ! -s "$APK" ]]; then
             echo "::error title=Quest APK missing::${APK} was not produced. Search the build log above for '[XRScanBuilder]'."
@@ -172,6 +178,12 @@ jobs:
           for name in libPICO_TOBAPI.so libpvrcapturelib.so libpxrplatformloader.so libCameraRenderingPlugin.so libopenxr_pico.so libUnityMockHMD.so; do
             if has_lib "lib/arm64-v8a/${name}"; then errors+=("PICO/MockHMD library packaged in the Quest APK: ${name}"); fi
           done
+
+          # Every file in the APK, serialized assets included: no PICO SDK, MCP for Unity,
+          # Ready Player Me or Visual Scripting content (standard-library Python).
+          if ! python3 tools/apk/scan_apk.py "$APK" --target quest; then
+            errors+=("tools/apk/scan_apk.py found content the Quest APK must not ship, or could not scan it (see its output above)")
+          fi
 
           # Manifest: dump it with aapt2 from the Unity Android image the build just used.
           cat > "$RUNNER_TEMP/aapt2-dump.sh" <<'SH'
