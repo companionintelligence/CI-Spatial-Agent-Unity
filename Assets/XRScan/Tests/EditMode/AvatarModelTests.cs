@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using XRScan.Avatar;
 
@@ -59,6 +60,41 @@ namespace XRScan.Tests.EditMode
         {
             var bones = LoadCompanion().GetComponentsInChildren<Transform>(true);
             Assert.IsTrue(bones.Any(t => t.name == "Head"), "no 'Head' transform for AvatarLoadController.Head");
+        }
+
+        /// <summary>
+        /// Both scenes with an avatar (the app scene and the in-Editor development scene with the mock
+        /// wiring) instance the companion model, and lip-sync drives its "Face" mesh.
+        /// </summary>
+        [TestCase("Assets/XRScan/App/Scenes/XRScan_Main.unity")]
+        [TestCase("Assets/XRScan/App/Scenes/XRScan_Dev.unity")]
+        public void Scene_AvatarIsTheCompanionWithLipSyncOnItsFace(string scenePath)
+        {
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            try
+            {
+                var loader = scene.GetRootGameObjects()
+                    .SelectMany(root => root.GetComponentsInChildren<AvatarLoadController>(true))
+                    .FirstOrDefault();
+                Assert.IsNotNull(loader, $"{scenePath}: no AvatarLoadController");
+
+                var source = PrefabUtility.GetCorrespondingObjectFromSource(loader.gameObject);
+                Assert.AreEqual(CompanionModel, source != null ? AssetDatabase.GetAssetPath(source) : "<not a model instance>",
+                    $"{scenePath}: the avatar does not instance the companion model");
+
+                var lipSync = loader.GetComponent<AvatarLipSync>();
+                Assert.IsNotNull(lipSync, $"{scenePath}: no AvatarLipSync on the avatar");
+                using (var serialized = new SerializedObject(lipSync))
+                {
+                    var face = serialized.FindProperty("faceRenderer").objectReferenceValue as SkinnedMeshRenderer;
+                    Assert.IsNotNull(face, $"{scenePath}: AvatarLipSync has no face renderer");
+                    Assert.AreEqual("Face", face.name, $"{scenePath}: lip-sync is bound to the wrong mesh");
+                }
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
         }
 
         [Test]
