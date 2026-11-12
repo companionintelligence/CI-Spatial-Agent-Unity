@@ -103,7 +103,7 @@ To put a different model on the scene avatar, keep its behaviour components and 
 
 ## Licensing
 
-The project is proprietary ([LICENSE.md](LICENSE.md)). Every bundled package and asset, its licence, which APK it ships in, and the notices a release must carry are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); update it whenever a dependency or asset changes (`ThirdPartyNoticesTests` fails while a resolved package is missing from it).
+The project's own code and assets, the generated `CI_Companion.glb` included, are under the PolyForm Noncommercial License 1.0.0 (see [License](#license)). Every bundled package and asset, its licence, which APK it ships in, and the notices a release must carry are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); update it whenever a dependency or asset changes (`ThirdPartyNoticesTests` fails while a resolved package is missing from it).
 
 The PICO SDK's licence forbids redistributing any of its material without PICO's written permission, and Unity packs an installed package's `Resources` (PICO's controller and hand models, textures, shaders) and settings objects into every player, not just its code. So **XRScan → Build** takes the PICO SDK out of the project for the Quest build, and the MCP for Unity editor tooling out for every build, then puts them back; a Quest build started any other way fails while the PICO SDK is installed. The Pico APK necessarily contains the PICO SDK and needs PICO's written permission before it is distributed. Check an APK with `python tools/apk/scan_apk.py <apk> --target quest|pico` — see [docs/BUILD.md](docs/BUILD.md#what-each-apk-contains).
 
