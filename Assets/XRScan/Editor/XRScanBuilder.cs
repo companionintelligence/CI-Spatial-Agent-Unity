@@ -16,8 +16,9 @@ namespace XRScan.EditorTools
     /// define, the enabled OpenXR feature group and the vendor packages present while the APK is built
     /// (<see cref="XRScanBuildPackages"/>: the PICO SDK only for Pico, MCP for Unity never).
     /// <para>The committed settings are the Quest state (define <c>XRSCAN_QUEST</c>, Meta features on,
-    /// PICO off), so a Quest build changes no tracked file. A Pico build flips the define and vendor
-    /// features and leaves them modified until the next Quest build — don't commit that state.</para>
+    /// PICO off). A Pico build flips the define and vendor features and leaves them modified until the
+    /// next Quest build — don't commit that state. Builds also leave editor side effects in tracked
+    /// files (docs/BUILD.md lists them), so check <c>git status</c> before committing.</para>
     /// <para>In batch mode (<c>-executeMethod</c>, without <c>-quit</c>) the editor exits when the build
     /// ends: 0 = built, 1 = failed, threw, or wrote no fresh APK.</para>
     /// <para>Signing and versionCode come from the environment (<see cref="AndroidReleaseSettings"/>): the

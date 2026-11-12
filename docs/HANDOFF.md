@@ -32,7 +32,7 @@ _State of `main` after PR #18, together with the build-hygiene, runtime-configur
 - **Editor:** Unity `6000.3.19f1` from Unity Hub, with Android Build Support (OpenJDK, SDK and NDK modules).
 - **adb:** `<editor>/Data/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb`, with a Quest 3 connected over USB and authorized.
   - Install: `adb install -r -g Builds/CISpatialCompanion-Quest.apk`
-  - Launch: `adb shell am start -n com.companionintelligence.xrscan/com.unity3d.player.UnityPlayerActivity`
+  - Launch: `adb shell am start -n com.companionintelligence.xrscan/com.unity3d.player.UnityPlayerGameActivity` (the APK's only activity since the switch to GameActivity; `UnityPlayerActivity` is no longer in it)
   - Logs: `adb logcat -s Unity:*` (our `Debug.Log` lines show as `Unity :`). Headset frame: `adb exec-out screencap -p > frame.png`.
   - Quest shows a **"Controllers Required"** system dialog before launching (the app has no hand tracking). Wake the Touch controllers or dismiss it, otherwise the app process never starts.
 - **aapt2:** `<editor>/Data/PlaybackEngines/AndroidPlayer/SDK/build-tools/36.0.0/aapt2`. See [BUILD.md](BUILD.md#verifying-a-build) for what a correct APK contains.

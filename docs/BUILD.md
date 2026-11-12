@@ -17,13 +17,18 @@ Menu **`XRScan → Build`** (from `Assets/XRScan/Editor/XRScanBuilder.cs`):
 | **Configure Android settings (no build)** | applies the player settings without building |
 | **Dump OpenXR features** | logs every Android OpenXR feature and whether it is enabled |
 
-Each build item applies the player settings, sets the define, switches the OpenXR features and builds the app scene (`XRScan_Main`). A build that has packages to leave out (every build: MCP for Unity; Quest: also the PICO SDK) first removes them from the project, waits for the script reload, builds, and then restores `Packages/manifest.json`, `Packages/packages-lock.json`, the OpenXR settings and any PICO-generated files from `Library/XRScanBuild`; in the Editor the packages come back with a second script reload. Deploy with:
+Each build item applies the player settings, sets the define, switches the OpenXR features and builds the app scene (`XRScan_Main`). A build that has packages to leave out (every build: MCP for Unity; Quest: also the PICO SDK) first removes them from the project, waits for the script reload, builds, and then restores `Packages/manifest.json`, `Packages/packages-lock.json`, the OpenXR settings and any PICO-generated files from `Library/XRScanBuild`; in the Editor the packages come back with a second script reload. Deploy and start it with:
 
 ```
 adb install -r Builds/CISpatialCompanion-Quest.apk
+adb shell am start -n com.companionintelligence.xrscan/com.unity3d.player.UnityPlayerGameActivity
 ```
 
+The app's entry point is GameActivity (`com.unity3d.player.UnityPlayerGameActivity`), which the OpenXR Meta Quest validation requires; the APK has no `UnityPlayerActivity`.
+
 The switch is saved into the project: the OpenXR feature set goes to `Assets/XR/Settings/OpenXRPackageSettings.asset` and the define stays in Player Settings. After building for the other headset, those settings show up as local changes. Every menu, command-line or CI build sets them again, so their committed values do not affect those builds.
+
+A build also changes tracked files that have nothing to do with the switch, so check `git status` after one and revert what you did not mean to change. A Quest build re-saves `Assets/Settings/UniversalRenderPipelineGlobalSettings.asset` (URP fills in its runtime settings list), and any editor session, builds and test runs included, points `.vscode/settings.json` at the local solution name. While a build runs, more files change, and a successful build puts them back: `Packages/manifest.json` and the lock file (and, in a Quest build, the OpenXR settings) for the package selection, the XR Simulation settings (AR Foundation moves `Assets/XR/Resources/XRSimulationRuntimeSettings.asset` and `Assets/XR/UserSimulationSettings/Resources/XRSimulationPreferences.asset` into the git-ignored `Assets/XR/Temp`), the XR loaders in Player Settings' preloaded assets, and the generated `Assets/Resources/PerformanceTestRun*.json` (the performance-testing package's build hook). A Pico build leaves PICO's generated `Assets/Resources/PXR_PlatformSetting.asset` and `PICOProjectSetting.asset` behind; they are PICO SDK material, so never commit them (a Quest build moves them aside while it runs). The package selection is always restored, at the next editor start if the editor was killed. After a failed or killed build, restore the rest with `git checkout` and delete the generated files in `Assets/Resources` and the folder `Assets/XR/Temp`; a leftover `Assets/XR/Temp` holds second copies of the XR Simulation assets with the same GUIDs.
 
 Always build through `XRScanBuilder`. A plain **File → Build** (or **Build And Run**) skips the OpenXR switch and the package selection, and packages whatever feature set was saved last.
 
