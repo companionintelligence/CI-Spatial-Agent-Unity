@@ -16,7 +16,7 @@ namespace XRScan.EditorTools
     /// correctly gated on its AR features being enabled. Adding them here duplicated the package's
     /// work and leaked Meta-only permissions into the Pico APK.
     ///
-    /// On a Quest build it also strips the stray <c>com.pvr.tobactivate.permission.AUTH_CHECK</c>
+    /// On any build other than Pico it also strips the stray <c>com.pvr.tobactivate.permission.AUTH_CHECK</c>
     /// permission that PICO's <c>tob_api</c> .aar (a unityLibrary dependency) merges in — via a
     /// <c>tools:node="remove"</c> marker, which the manifest merger honours for
     /// dependency-contributed permissions. The matching PICO native libs are dropped separately by
@@ -41,8 +41,10 @@ namespace XRScan.EditorTools
 
             AddPermission(doc, manifest, "android.permission.RECORD_AUDIO"); // STT microphone
 
-            // PICO's tob_api.aar contributes this permission during manifest merge; not wanted on Quest.
-            if (XRScanBuilder.BuildingForQuest())
+            // PICO's tob_api.aar contributes this permission during manifest merge; only a Pico build
+            // wants it. (Outside Pico builds XRScanNativeLibExcluder also drops the .aar itself; the
+            // remove marker stays as a belt-and-braces guard.)
+            if (!XRScanBuilder.BuildingForPico())
                 RemovePermission(doc, manifest, "com.pvr.tobactivate.permission.AUTH_CHECK");
 
             doc.Save(manifestPath);

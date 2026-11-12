@@ -115,12 +115,16 @@ namespace XRScan.EditorTools
             ConfigureAndroid();
             SetPlatformDefine(keepDefine);
             ConfigureOpenXRFeatures(keepDefine == QuestDefine);
-            // The other vendor's native libs (and MockHMD's) are excluded from the APK at packaging
-            // time by XRScanNativeLibExcluder, and PICO's stray permission by XRScanManifestPostProcessor
-            // — both keyed off the platform define set above. (PluginImporter flags don't work for
-            // plugins that live in read-only packages, so packaging-level exclusion is used instead.)
+            // Everything below is keyed off the platform define set above:
+            //  - XRScanPlayerAssemblyFilter drops managed assemblies that must not ship (unity-mcp
+            //    always; the PICO SDK unless this is a Pico build),
+            //  - XRScanNativeLibExcluder drops the other vendor's native libs and, outside Pico
+            //    builds, the PICO SDK's Java plugins from the Gradle project,
+            //  - XRScanManifestPostProcessor strips PICO's stray permission from Quest builds.
+            // (PluginImporter flags don't work for plugins that live in read-only packages, so
+            // build-callback / packaging-level exclusion is used instead.)
 
-            var dir = Path.Combine(Directory.GetCurrentDirectory(), "Builds");
+            var dir = OutputDirectory();
             Directory.CreateDirectory(dir);
             var apkPath = Path.Combine(dir, apkName);
 
@@ -161,6 +165,24 @@ namespace XRScan.EditorTools
 
             Debug.LogError($"[XRScanBuilder] {apkName} build {s.result}{(apkWritten ? "" : ", no APK written")}, {s.totalErrors} error(s){errorList}");
             return false;
+        }
+
+        /// <summary>
+        /// Where APKs are written: <c>-xrscanBuildDir &lt;dir&gt;</c> on the command line, else the
+        /// <c>XRSCAN_BUILD_DIR</c> environment variable, else <c>&lt;project&gt;/Builds</c>. Lets CI and
+        /// scripted builds keep their output outside the working tree.
+        /// </summary>
+        internal static string OutputDirectory()
+        {
+            var args = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++)
+            {
+                if (string.Equals(args[i], "-xrscanBuildDir", System.StringComparison.OrdinalIgnoreCase))
+                    return Path.GetFullPath(args[i + 1]);
+            }
+            var env = System.Environment.GetEnvironmentVariable("XRSCAN_BUILD_DIR");
+            if (!string.IsNullOrWhiteSpace(env)) return Path.GetFullPath(env);
+            return Path.Combine(Directory.GetCurrentDirectory(), "Builds");
         }
 
         /// <summary>
@@ -245,8 +267,17 @@ namespace XRScan.EditorTools
         /// <see cref="SetPlatformDefine"/> at the start of a build). The gradle/manifest
         /// post-processors read this to strip the non-target vendor's native libs and permissions.
         /// </summary>
-        internal static bool BuildingForQuest() =>
+        internal static bool BuildingForQuest() => HasAndroidDefine(QuestDefine);
+
+        /// <summary>
+        /// True only for an explicit Pico build (<c>XRSCAN_PICO</c>). PICO SDK content — managed
+        /// assemblies, native libs, Java plugins, permissions — ships in Pico builds only; any other
+        /// Android build (Quest, or one made without either define) leaves it out.
+        /// </summary>
+        internal static bool BuildingForPico() => HasAndroidDefine(PicoDefine);
+
+        private static bool HasAndroidDefine(string define) =>
             PlayerSettings.GetScriptingDefineSymbols(NamedBuildTarget.Android)
-                .Split(';').Any(d => d == QuestDefine);
+                .Split(';').Any(d => d == define);
     }
 }
