@@ -212,6 +212,7 @@ jobs:
             reject() { if grep -Eq -- "$1" <<< "$manifest"; then errors+=("$2"); fi; }
             expect "^package: name='com\.companionintelligence\.xrscan'" "Package name is not com.companionintelligence.xrscan"
             expect "^(minSdkVersion|sdkVersion):'32'$" "Minimum SDK is not API 32"
+            expect "^targetSdkVersion:'34'$" "Target SDK is not API 34 (the Meta Horizon Store requires exactly 34)"
             expect "^native-code: 'arm64-v8a'$" "native-code is not exactly arm64-v8a"
             expect "name='android\.permission\.RECORD_AUDIO'" "Missing android.permission.RECORD_AUDIO (added by XRScanManifestPostProcessor)"
             expect "name='horizonos\.permission\.HEADSET_CAMERA'" "Missing horizonos.permission.HEADSET_CAMERA (comes from the Meta AR camera feature)"

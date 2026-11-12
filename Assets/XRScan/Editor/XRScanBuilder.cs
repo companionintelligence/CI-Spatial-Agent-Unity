@@ -29,6 +29,9 @@ namespace XRScan.EditorTools
         private const string QuestApk = "CISpatialCompanion-Quest.apk";
         private const string PicoApk = "CISpatialCompanion-Pico.apk";
 
+        /// <summary>Android target SDK of every APK: the Meta Horizon Store requires exactly API 34.</summary>
+        internal const AndroidSdkVersions TargetSdk = AndroidSdkVersions.AndroidApiLevel34;
+
         /// <summary>
         /// Meta (com.unity.xr.meta-openxr) features the app does not use; every build keeps them off.
         /// No script, scene or prefab uses an ARAnchorManager / ARAnchor, ARBoundingBoxManager or
@@ -91,7 +94,7 @@ namespace XRScan.EditorTools
         public static void ConfigureMenu()
         {
             ConfigureAndroid();
-            Debug.Log("[XRScanBuilder] Android player settings configured (IL2CPP / ARM64 / Vulkan / minSDK32 / Linear / SPI / GameActivity).");
+            Debug.Log("[XRScanBuilder] Android player settings configured (IL2CPP / ARM64 / Vulkan / minSDK32 / targetSDK34 / Linear / SPI / GameActivity).");
         }
 
         /// <summary>Applies the Quest/Pico-ready Android player settings. Idempotent.</summary>
@@ -103,6 +106,10 @@ namespace XRScan.EditorTools
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
             PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { UnityEngine.Rendering.GraphicsDeviceType.Vulkan });
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel32;
+            // The Meta Horizon Store requires targetSdkVersion 34 exactly for apps created since March
+            // 2026. "Automatic" would target the highest SDK platform installed (36 with this editor), so
+            // pin it. The Pico APK uses the same value.
+            PlayerSettings.Android.targetSdkVersion = TargetSdk;
             PlayerSettings.colorSpace = ColorSpace.Linear;
             PlayerSettings.stereoRenderingPath = StereoRenderingPath.Instancing;
             // OpenXR's Meta Quest validation requires GameActivity on Unity 6+. Nothing here depends on

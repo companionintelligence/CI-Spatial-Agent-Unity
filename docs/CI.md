@@ -86,7 +86,7 @@ The build step runs the editor without `-quit` (game-ci's `manualExit: true`): `
 - `Builds/CISpatialCompanion-Quest.apk` exists and is not empty.
 - `tools/apk/scan_apk.py --target quest` finds no PICO SDK, MCP for Unity, Ready Player Me or Visual Scripting content in any file of the APK, serialized assets included.
 - Native libraries are ARM64 only. `libil2cpp.so`, `libunity.so` and `libopenxr_loader.so` are present, and none of the PICO or Mock HMD libraries that `XRScanNativeLibExcluder` strips from Quest builds are.
-- The manifest, read with `aapt2` from the Android SDK inside the Unity image, has package `com.companionintelligence.xrscan`, minimum SDK 32, native code `arm64-v8a` only, the permissions `android.permission.RECORD_AUDIO`, `horizonos.permission.HEADSET_CAMERA` and `com.oculus.permission.USE_SCENE`, and not the PICO permission `com.pvr.tobactivate.permission.AUTH_CHECK`.
+- The manifest, read with `aapt2` from the Android SDK inside the Unity image, has package `com.companionintelligence.xrscan`, minimum SDK 32, target SDK 34, native code `arm64-v8a` only, the permissions `android.permission.RECORD_AUDIO`, `horizonos.permission.HEADSET_CAMERA` and `com.oculus.permission.USE_SCENE`, and not the PICO permission `com.pvr.tobactivate.permission.AUTH_CHECK`.
 
 These are the expectations from [BUILD.md](BUILD.md#verifying-a-build). If what a Quest build should contain changes, update the `Verify the APK` step in `quest-apk.yml` and BUILD.md together.
 

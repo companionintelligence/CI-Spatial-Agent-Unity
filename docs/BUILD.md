@@ -44,6 +44,7 @@ Unity.exe -batchmode -projectPath . -buildTarget Android -executeMethod XRScan.E
 - **Scripting backend** IL2CPP · **Architecture** ARM64
 - **Graphics API** Vulkan (GLES removed)
 - **Min SDK** Android 12 / API 32 (required for XR CPU camera images)
+- **Target SDK** API 34. The Meta Horizon Store requires exactly 34 for apps created since March 2026, so the target is pinned instead of *Automatic* (which would pick the highest installed platform, 36 with this editor). The Pico APK uses the same value.
 - **Color space** Linear · **Stereo rendering** Single Pass Instanced
 
 From Player Settings: **App id** `com.companionintelligence.xrscan`, and no custom keystore, so APKs are signed with Unity's debug key. That is fine for sideloading but not for a store upload.
@@ -89,7 +90,7 @@ set BT=<editor>\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\build-tools\36.0.0
 
 A correct **Quest** build reports:
 
-- `package: com.companionintelligence.xrscan`, `minSdkVersion:'32'`, `native-code: 'arm64-v8a'`
+- `package: com.companionintelligence.xrscan`, `minSdkVersion:'32'`, `targetSdkVersion:'34'`, `native-code: 'arm64-v8a'`
 - `android.permission.RECORD_AUDIO` (added by the post-processor) plus `horizonos.permission.HEADSET_CAMERA` and `com.oculus.permission.USE_SCENE` (from `com.unity.xr.meta-openxr`, because `XRScanBuilder` turns on `ARCameraFeature.cameraImageSupportEnabled`, which is also what makes CPU passthrough-camera images available to the scanner)
 - OpenXR wiring: `org.khronos.openxr.permission.OPENXR`, and the Meta entries `com.oculus.feature.PASSTHROUGH` / `com.oculus.intent.category.VR` / `com.oculus.vr.focusaware`
 - no `com.pvr.tobactivate.permission.AUTH_CHECK`, and no PICO or Mock HMD libraries under `lib/arm64-v8a/`
