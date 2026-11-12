@@ -1,0 +1,10 @@
+# Unity writes its YAML assets with LF line endings, so check them out with LF too. With a CRLF
+# checkout (core.autocrlf=true, the Git for Windows default) every editor re-save of an unchanged
+# asset shows up as a modified file.
+*.asset      text=auto eol=lf
+*.meta       text=auto eol=lf
+*.unity      text=auto eol=lf
+*.prefab     text=auto eol=lf
+*.mat        text=auto eol=lf
+*.anim       text=auto eol=lf
+*.controller text=auto eol=lf
