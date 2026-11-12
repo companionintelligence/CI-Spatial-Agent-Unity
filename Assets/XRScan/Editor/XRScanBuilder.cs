@@ -1,7 +1,10 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Build;
+using UnityEditor.Build.Reporting;
 using UnityEngine;
 
 namespace XRScan.EditorTools
@@ -11,12 +14,35 @@ namespace XRScan.EditorTools
     /// sets the per-platform scripting define, and builds the app scene to <c>/Builds</c>.
     /// Menu: <b>XRScan &gt; Build</b>. The two headsets share one OpenXR APK; the define only
     /// gates any platform-specific asmdef code.
+    /// <para>The committed settings are the Quest state (define <c>XRSCAN_QUEST</c>, Meta features on,
+    /// PICO off), so a Quest build changes no tracked file. A Pico build flips the define and vendor
+    /// features and leaves them modified until the next Quest build — don't commit that state.</para>
+    /// <para>In batch mode (CI) a failed build exits the editor with code 1.</para>
     /// </summary>
     public static class XRScanBuilder
     {
         private const string Scene = "Assets/XRScan/App/Scenes/XRScan_Main.unity";
         private const string QuestDefine = "XRSCAN_QUEST";
         private const string PicoDefine = "XRSCAN_PICO";
+
+        /// <summary>
+        /// Meta (com.unity.xr.meta-openxr) features the app does not use; every build keeps them off.
+        /// No script, scene or prefab uses an ARAnchorManager / ARAnchor, ARBoundingBoxManager or
+        /// AROcclusionManager, or calls the colocation, boundary-visibility or display-refresh-rate APIs.
+        /// Enabled, they only request extra OpenXR extensions and (Anchors, Boundary Visibility,
+        /// Colocation Discovery) add the IMPORT_EXPORT_IOT_MAP_DATA, BOUNDARY_VISIBILITY and
+        /// USE_COLOCATION_DISCOVERY_API permissions. To use one, remove it here and enable it in
+        /// Assets/XR/Settings/OpenXRPackageSettings.asset.
+        /// </summary>
+        private static readonly HashSet<string> UnusedMetaFeatures = new HashSet<string>
+        {
+            "UnityEngine.XR.OpenXR.Features.Meta.ARAnchorFeature",
+            "UnityEngine.XR.OpenXR.Features.Meta.ARBoundingBoxFeature",
+            "UnityEngine.XR.OpenXR.Features.Meta.AROcclusionFeature",
+            "UnityEngine.XR.OpenXR.Features.Meta.BoundaryVisibilityFeature",
+            "UnityEngine.XR.OpenXR.Features.Meta.ColocationDiscoveryFeature",
+            "UnityEngine.XR.OpenXR.Features.Meta.DisplayUtilitiesFeature",
+        };
 
         [MenuItem("XRScan/Build/Quest 3 (Android APK)", false, 0)]
         public static void BuildQuest() => Build(QuestDefine, "CISpatialCompanion-Quest.apk");
@@ -44,7 +70,7 @@ namespace XRScan.EditorTools
         public static void ConfigureMenu()
         {
             ConfigureAndroid();
-            Debug.Log("[XRScanBuilder] Android player settings configured (IL2CPP / ARM64 / Vulkan / minSDK32 / Linear / SPI).");
+            Debug.Log("[XRScanBuilder] Android player settings configured (IL2CPP / ARM64 / Vulkan / minSDK32 / Linear / SPI / GameActivity).");
         }
 
         /// <summary>Applies the Quest/Pico-ready Android player settings. Idempotent.</summary>
@@ -58,9 +84,33 @@ namespace XRScan.EditorTools
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel32;
             PlayerSettings.colorSpace = ColorSpace.Linear;
             PlayerSettings.stereoRenderingPath = StereoRenderingPath.Instancing;
+            // OpenXR's Meta Quest validation requires GameActivity on Unity 6+. Nothing here depends on
+            // the legacy activity: no custom manifest or Activity code, and the bundled .aar/.java
+            // plugins (PICO, ARCore permissions, Oculus) only use UnityPlayer.currentActivity or
+            // android.app.Activity, which GameActivity also provides.
+            PlayerSettings.Android.applicationEntry = AndroidApplicationEntry.GameActivity;
         }
 
         private static void Build(string keepDefine, string apkName)
+        {
+            bool ok;
+            try
+            {
+                ok = BuildApk(keepDefine, apkName);
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                ok = false;
+            }
+
+            // CI runs this via -batchmode -quit -executeMethod, which exits 0 after the method returns
+            // even when the build failed. Interactive (menu) builds only log.
+            if (!ok && Application.isBatchMode)
+                EditorApplication.Exit(1);
+        }
+
+        private static bool BuildApk(string keepDefine, string apkName)
         {
             ConfigureAndroid();
             SetPlatformDefine(keepDefine);
@@ -72,28 +122,52 @@ namespace XRScan.EditorTools
 
             var dir = Path.Combine(Directory.GetCurrentDirectory(), "Builds");
             Directory.CreateDirectory(dir);
+            var apkPath = Path.Combine(dir, apkName);
 
             var opts = new BuildPlayerOptions
             {
                 scenes = new[] { Scene },
-                locationPathName = Path.Combine(dir, apkName),
+                locationPathName = apkPath,
                 target = BuildTarget.Android,
                 targetGroup = BuildTargetGroup.Android,
                 options = BuildOptions.None
             };
 
+            var startedUtc = DateTime.UtcNow;
             var report = BuildPipeline.BuildPlayer(opts);
             var s = report.summary;
-            if (s.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
-                Debug.Log($"[XRScanBuilder] Built {apkName} — {s.totalSize / (1024 * 1024)} MB at {s.outputPath}");
-            else
-                Debug.LogError($"[XRScanBuilder] {apkName} build {s.result}: {s.totalErrors} error(s).");
+            // First line of each error only: the full text is already in the editor log, and a Gradle
+            // failure's text includes the whole process environment.
+            var errors = report.steps
+                .SelectMany(step => step.messages)
+                .Where(m => m.type == LogType.Error || m.type == LogType.Exception || m.type == LogType.Assert)
+                .Select(m => (m.content ?? string.Empty).Trim().Split('\n')[0].Trim())
+                .Where(line => line.Length > 0)
+                .Take(20)
+                .ToList();
+            var errorList = errors.Count > 0 ? ":\n  " + string.Join("\n  ", errors) : ".";
+
+            // A stale APK from an earlier build must not pass for this one.
+            var apk = new FileInfo(apkPath);
+            bool apkWritten = apk.Exists && apk.Length > 0 && apk.LastWriteTimeUtc >= startedUtc.AddSeconds(-5);
+
+            if (s.result == BuildResult.Succeeded && apkWritten)
+            {
+                Debug.Log($"[XRScanBuilder] Built {apkName} — {apk.Length / (1024.0 * 1024.0):F1} MB at {apk.FullName}");
+                if (s.totalErrors > 0)
+                    Debug.LogWarning($"[XRScanBuilder] Build succeeded but logged {s.totalErrors} error(s){errorList}");
+                return true;
+            }
+
+            Debug.LogError($"[XRScanBuilder] {apkName} build {s.result}{(apkWritten ? "" : ", no APK written")}, {s.totalErrors} error(s){errorList}");
+            return false;
         }
 
         /// <summary>
         /// Enables the target headset's OpenXR features and disables the other's — Quest and PICO
         /// can't both be active in one build (OpenXR validation allows only one vendor's interaction
-        /// profile). Quest build: Meta/Oculus features on, PICO off; Pico build: the reverse.
+        /// profile). Quest build: Meta/Oculus features on (except <see cref="UnusedMetaFeatures"/>),
+        /// PICO off; Pico build: the reverse. Saves the settings asset only when a toggle changed.
         /// </summary>
         private static void ConfigureOpenXRFeatures(bool quest)
         {
@@ -118,6 +192,7 @@ namespace XRScan.EditorTools
                 bool target;
                 if (isPico) target = !quest;
                 else if (isDeprecatedOculusQuest) target = false; // always off — use the Meta Quest feature
+                else if (UnusedMetaFeatures.Contains(n)) target = false; // see UnusedMetaFeatures
                 else if (isMeta) target = quest;
                 else continue; // leave vendor-neutral features (hand tracking, debugger, ...) untouched
 
@@ -145,8 +220,11 @@ namespace XRScan.EditorTools
                 }
             }
 
-            UnityEditor.EditorUtility.SetDirty(settings);
-            UnityEditor.AssetDatabase.SaveAssets();
+            if (changed > 0)
+            {
+                UnityEditor.EditorUtility.SetDirty(settings);
+                UnityEditor.AssetDatabase.SaveAssets();
+            }
             Debug.Log($"[XRScanBuilder] OpenXR features configured for {(quest ? "Quest" : "Pico")} ({changed} toggled).");
         }
 
