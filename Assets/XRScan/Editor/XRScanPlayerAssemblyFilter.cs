@@ -11,17 +11,19 @@ using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 namespace XRScan.EditorTools
 {
     /// <summary>
-    /// Keeps managed assemblies that must not be redistributed out of player builds. Unity compiles
-    /// every runtime assembly of every installed package into the player, and the asmdefs that need
-    /// excluding live in read-only git packages, so they cannot be given define constraints. This
-    /// <see cref="IFilterBuildAssemblies"/> hook drops them at build time instead:
+    /// Second line of defence that keeps managed assemblies which must not be redistributed out of
+    /// player builds. <see cref="XRScanBuilder"/> already builds each APK from a project without those
+    /// packages (<see cref="XRScanBuildPackages"/>), so in its builds this finds nothing to drop; it
+    /// matters for builds made another way while the packages are installed. It only filters
+    /// assemblies: the packages' <c>Resources</c>, serialized objects and script names still ship, which
+    /// is why <see cref="XRScanVendorPackageGuard"/> refuses a non-Pico Android build with the PICO SDK
+    /// installed.
     /// <list type="bullet">
     /// <item><b>Every player build:</b> <c>com.coplaydev.unity-mcp</c> (MCP for Unity). It is
     /// edit-time tooling; its <c>MCPForUnity.Runtime</c> assembly is only used by its Editor bridge.</item>
     /// <item><b>Every build except an explicit Pico build</b> (<c>XRSCAN_PICO</c>):
     /// <c>com.unity.xr.openxr.picoxr</c>. The PICO SDK licence forbids reproduction without written
-    /// permission from PICO, and the assemblies are inert outside a PICO runtime. Their native and
-    /// Java plugins are removed from the Gradle project by <see cref="XRScanNativeLibExcluder"/>.</item>
+    /// permission from PICO.</item>
     /// </list>
     /// Excluded assemblies are matched by the package that owns their asmdef (or precompiled DLL),
     /// so new assemblies added to those packages are covered automatically.
@@ -29,10 +31,10 @@ namespace XRScan.EditorTools
     public class XRScanPlayerAssemblyFilter : IFilterBuildAssemblies
     {
         /// <summary>Packages whose assemblies never ship in a player (edit-time tooling).</summary>
-        internal static readonly string[] EditorOnlyPackages = { "com.coplaydev.unity-mcp" };
+        internal static readonly string[] EditorOnlyPackages = XRScanBuildPackages.EditorOnlyPackages;
 
         /// <summary>Packages whose assemblies ship only in a Pico build.</summary>
-        internal static readonly string[] PicoOnlyPackages = { "com.unity.xr.openxr.picoxr" };
+        internal static readonly string[] PicoOnlyPackages = XRScanBuildPackages.PicoOnlyPackages;
 
         public int callbackOrder => 0;
 

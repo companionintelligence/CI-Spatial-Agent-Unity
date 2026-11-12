@@ -12,18 +12,22 @@ namespace XRScan.EditorTools
     /// <summary>
     /// One-click Android (Quest 3 / Pico) APK builds. Applies the OpenXR-first player settings,
     /// sets the per-platform scripting define, and builds the app scene to <c>/Builds</c>.
-    /// Menu: <b>XRScan &gt; Build</b>. The two headsets share one OpenXR APK; the define only
-    /// gates any platform-specific asmdef code.
+    /// Menu: <b>XRScan &gt; Build</b>. The two headsets share one codebase; what differs per APK is the
+    /// define, the enabled OpenXR feature group and the vendor packages present while the APK is built
+    /// (<see cref="XRScanBuildPackages"/>: the PICO SDK only for Pico, MCP for Unity never).
     /// <para>The committed settings are the Quest state (define <c>XRSCAN_QUEST</c>, Meta features on,
     /// PICO off), so a Quest build changes no tracked file. A Pico build flips the define and vendor
     /// features and leaves them modified until the next Quest build — don't commit that state.</para>
-    /// <para>In batch mode (CI) a failed build exits the editor with code 1.</para>
+    /// <para>In batch mode (<c>-executeMethod</c>, without <c>-quit</c>) the editor exits when the build
+    /// ends: 0 = built, 1 = failed, threw, or wrote no fresh APK.</para>
     /// </summary>
     public static class XRScanBuilder
     {
         private const string Scene = "Assets/XRScan/App/Scenes/XRScan_Main.unity";
         private const string QuestDefine = "XRSCAN_QUEST";
         private const string PicoDefine = "XRSCAN_PICO";
+        private const string QuestApk = "CISpatialCompanion-Quest.apk";
+        private const string PicoApk = "CISpatialCompanion-Pico.apk";
 
         /// <summary>
         /// Meta (com.unity.xr.meta-openxr) features the app does not use; every build keeps them off.
@@ -45,10 +49,27 @@ namespace XRScan.EditorTools
         };
 
         [MenuItem("XRScan/Build/Quest 3 (Android APK)", false, 0)]
-        public static void BuildQuest() => Build(QuestDefine, "CISpatialCompanion-Quest.apk");
+        public static void BuildQuest() => Build(pico: false);
 
         [MenuItem("XRScan/Build/Pico (Android APK)", false, 1)]
-        public static void BuildPico() => Build(PicoDefine, "CISpatialCompanion-Pico.apk");
+        public static void BuildPico() => Build(pico: true);
+
+        private static void Build(bool pico)
+        {
+            try
+            {
+                XRScanBuildPackages.Build(pico);
+            }
+            catch (Exception e)
+            {
+                // XRScanBuildPackages reports its own failures and, in batch mode, exits with the build
+                // result. This catches an exception thrown before it gets that far (e.g. an unreadable
+                // manifest), which would otherwise leave a headless editor without a failing exit code.
+                Debug.LogException(e);
+                if (Application.isBatchMode)
+                    EditorApplication.Exit(1);
+            }
+        }
 
         /// <summary>Diagnostic: log every Android OpenXR feature and whether it is enabled.</summary>
         [MenuItem("XRScan/Build/Dump OpenXR features", false, 21)]
@@ -91,38 +112,25 @@ namespace XRScan.EditorTools
             PlayerSettings.Android.applicationEntry = AndroidApplicationEntry.GameActivity;
         }
 
-        private static void Build(string keepDefine, string apkName)
+        /// <summary>
+        /// Configures and builds one APK in the current project state. Called by
+        /// <see cref="XRScanBuildPackages"/> once the packages the APK must not contain are out of the
+        /// project; returns whether the build succeeded.
+        /// </summary>
+        internal static bool BuildNow(bool pico)
         {
-            bool ok;
-            try
-            {
-                ok = BuildApk(keepDefine, apkName);
-            }
-            catch (Exception e)
-            {
-                Debug.LogException(e);
-                ok = false;
-            }
-
-            // CI runs this via -batchmode -quit -executeMethod, which exits 0 after the method returns
-            // even when the build failed. Interactive (menu) builds only log.
-            if (!ok && Application.isBatchMode)
-                EditorApplication.Exit(1);
-        }
-
-        private static bool BuildApk(string keepDefine, string apkName)
-        {
+            var apkName = pico ? PicoApk : QuestApk;
             ConfigureAndroid();
-            SetPlatformDefine(keepDefine);
-            ConfigureOpenXRFeatures(keepDefine == QuestDefine);
-            // Everything below is keyed off the platform define set above:
-            //  - XRScanPlayerAssemblyFilter drops managed assemblies that must not ship (unity-mcp
-            //    always; the PICO SDK unless this is a Pico build),
-            //  - XRScanNativeLibExcluder drops the other vendor's native libs and, outside Pico
-            //    builds, the PICO SDK's Java plugins from the Gradle project,
+            SetPlatformDefine(pico ? PicoDefine : QuestDefine);
+            ConfigureOpenXRFeatures(!pico);
+            // The build callbacks below are keyed off the platform define set above. They are a second
+            // line of defence for content that XRScanBuildPackages already took out of the project:
+            //  - XRScanVendorPackageGuard fails a non-Pico Android build if the PICO SDK (or a file it
+            //    generated in Assets/Resources) is still in the project,
+            //  - XRScanPlayerAssemblyFilter drops managed assemblies that must not ship,
+            //  - XRScanNativeLibExcluder drops the other vendor's native libs (and, outside Pico builds,
+            //    PICO's Java plugins) from the Gradle project,
             //  - XRScanManifestPostProcessor strips PICO's stray permission from Quest builds.
-            // (PluginImporter flags don't work for plugins that live in read-only packages, so
-            // build-callback / packaging-level exclusion is used instead.)
 
             var dir = OutputDirectory();
             Directory.CreateDirectory(dir);

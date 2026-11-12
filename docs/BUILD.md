@@ -4,7 +4,7 @@ The project is OpenXR-first: one codebase, but **one APK per headset**. A Quest 
 
 - **OpenXR features.** The build enables the target headset's OpenXR features and disables the other vendor's. Quest gets the Meta features plus the Oculus Touch controller profile; Pico gets the PICO features. OpenXR validation allows only one vendor's interaction profile, so the two sets cannot be on in the same APK.
 - **Scripting define.** `XRSCAN_QUEST` or `XRSCAN_PICO` (the other one is removed). It gates any platform-specific code and tells the build post-processors which headset they are packaging for.
-- **Packaging.** Each APK leaves out the other vendor's native libraries and permissions, the Quest APK leaves out the PICO SDK's code and plugins, and no APK ships MCP for Unity (see [What each APK contains](#what-each-apk-contains)).
+- **Packaging.** Each APK is built from a project without the vendor packages it must not contain (Quest: the PICO SDK; both: MCP for Unity), and leaves out the other vendor's native libraries and permissions (see [What each APK contains](#what-each-apk-contains)).
 
 ## One-click build
 
@@ -17,7 +17,7 @@ Menu **`XRScan → Build`** (from `Assets/XRScan/Editor/XRScanBuilder.cs`):
 | **Configure Android settings (no build)** | applies the player settings without building |
 | **Dump OpenXR features** | logs every Android OpenXR feature and whether it is enabled |
 
-Each build item applies the player settings, sets the define, switches the OpenXR features and builds the app scene (`XRScan_Main`). Deploy with:
+Each build item applies the player settings, sets the define, switches the OpenXR features and builds the app scene (`XRScan_Main`). A build that has packages to leave out (every build: MCP for Unity; Quest: also the PICO SDK) first removes them from the project, waits for the script reload, builds, and then restores `Packages/manifest.json`, `Packages/packages-lock.json`, the OpenXR settings and any PICO-generated files from `Library/XRScanBuild`; in the Editor the packages come back with a second script reload. Deploy with:
 
 ```
 adb install -r Builds/CISpatialCompanion-Quest.apk
@@ -25,17 +25,17 @@ adb install -r Builds/CISpatialCompanion-Quest.apk
 
 The switch is saved into the project: the OpenXR feature set goes to `Assets/XR/Settings/OpenXRPackageSettings.asset` and the define stays in Player Settings. After building for the other headset, those settings show up as local changes. Every menu, command-line or CI build sets them again, so their committed values do not affect those builds.
 
-Always build through `XRScanBuilder`. A plain **File → Build** (or **Build And Run**) skips the OpenXR switch and packages whatever feature set was saved last.
+Always build through `XRScanBuilder`. A plain **File → Build** (or **Build And Run**) skips the OpenXR switch and the package selection, and packages whatever feature set was saved last.
 
 ### Command line and CI
 
 The same entry points run headlessly. `-xrscanBuildDir <dir>` (or the `XRSCAN_BUILD_DIR` environment variable) writes the APK outside the working tree instead of `Builds/`:
 
 ```
-Unity.exe -quit -batchmode -projectPath . -buildTarget Android -executeMethod XRScan.EditorTools.XRScanBuilder.BuildQuest -xrscanBuildDir D:\out
+Unity.exe -batchmode -projectPath . -buildTarget Android -executeMethod XRScan.EditorTools.XRScanBuilder.BuildQuest -xrscanBuildDir D:\out
 ```
 
-(`BuildPico` for the Pico APK.) In batch mode a failed build, or one that wrote no fresh APK, exits the editor with code 1. CI builds the Quest APK this way on every pull request and checks its contents; see [CI.md](CI.md).
+(`BuildPico` for the Pico APK.) Do **not** pass `-quit`: removing the packages needs a script reload that `-quit` would cut short (the builder refuses to start and exits 1 if it sees it). The builder exits by itself after restoring the project files: 0 = built; 1 = the build failed, threw, or wrote no fresh APK. If the editor is killed mid-build, the next start of the project restores the files. CI builds the Quest APK this way on every pull request and checks its contents; see [CI.md](CI.md).
 
 ## What's preconfigured
 
@@ -54,24 +54,28 @@ From Player Settings: **App id** `com.companionintelligence.xrscan`, and no cust
 
 ## What each APK contains
 
-Unity packages every installed package's runtime assemblies and Android plugins into every player, whatever loader or feature is active. Three build callbacks in `Assets/XRScan/Editor`, all keyed off the platform define the builder sets, trim that per headset:
+Unity packs every installed package's runtime assemblies, native and Java plugins, `Resources` folders and the settings objects it owns into every player, whatever loader or feature is active, and nothing inside a read-only package can be excluded piecemeal. So the builder first decides which packages are in the project for the build (`XRScanBuildPackages`); build callbacks in `Assets/XRScan/Editor`, keyed off the platform define, then trim the rest:
 
-| Callback | Quest APK (`XRSCAN_QUEST`, and any non-Pico build) | Pico APK (`XRSCAN_PICO`) |
+| Step | Quest APK (`XRSCAN_QUEST`, and any non-Pico build) | Pico APK (`XRSCAN_PICO`) |
 |---|---|---|
-| `XRScanPlayerAssemblyFilter` (`IFilterBuildAssemblies`) | drops the PICO SDK's managed assemblies (`com.unity.xr.openxr.picoxr`) and MCP for Unity's `MCPForUnity.Runtime` | keeps PICO; drops `MCPForUnity.Runtime` |
-| `XRScanNativeLibExcluder` (Gradle post-process) | deletes PICO's `.aar` / `.jar` plugins from the Gradle project and excludes PICO's `.so` (`libPICO_TOBAPI`, `libpvrcapturelib`, `libpxrplatformloader`, `libCameraRenderingPlugin`, `libopenxr_pico`) and `libUnityMockHMD.so` | excludes Meta's `libUnityARFoundationMeta.so` and `libUnityMockHMD.so` |
+| `XRScanBuildPackages` (package selection, before the build) | removes the PICO SDK (`com.unity.xr.openxr.picoxr`) and MCP for Unity (`com.coplaydev.unity-mcp`) from the project, and moves PICO-generated `Assets/Resources/PXR_PlatformSetting.asset`, `PICOProjectSetting.asset` and `PicoSdkPCConfig.json` aside | removes MCP for Unity |
+| `XRScanVendorPackageGuard` (`IPreprocessBuildWithReport`) | fails the build while the PICO SDK or a PICO-generated file is still in the project, e.g. a build started from the Build Profiles window | — |
+| `XRScanPlayerAssemblyFilter` (`IFilterBuildAssemblies`) | second line of defence: drops PICO and MCP for Unity assemblies if they are present | drops MCP for Unity's `MCPForUnity.Runtime` if present |
+| `XRScanNativeLibExcluder` (Gradle post-process) | excludes PICO's `.so` (`libPICO_TOBAPI`, `libpvrcapturelib`, `libpxrplatformloader`, `libCameraRenderingPlugin`, `libopenxr_pico`) and `libUnityMockHMD.so`; deletes PICO's `.aar` / `.jar` plugins if present | excludes Meta's `libUnityARFoundationMeta.so` and `libUnityMockHMD.so` |
 | `XRScanManifestPostProcessor` | adds `RECORD_AUDIO`; removes PICO's `com.pvr.tobactivate.permission.AUTH_CHECK` | adds `RECORD_AUDIO` |
 
 `libopenxr_loader.so` is the vendor-neutral Khronos loader, so both APKs keep it. Libraries not listed here are packaged as usual.
 
-Why: the PICO SDK's licence forbids reproducing its material without PICO's written permission, and MCP for Unity is edit-time tooling (its runtime assembly only serves its Editor bridge). PluginImporter / asmdef flags can't be changed for plugins and asmdefs inside read-only git packages, hence build callbacks. See [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) for what remains in each APK and under which licence. **XRScan → Build → Dump excluded player assemblies** lists the assemblies each build leaves out.
+Why: the PICO SDK's licence forbids reproducing its material without PICO's written permission, and MCP for Unity is edit-time tooling. Filtering assemblies, plugins and permissions is not enough on its own: an earlier Quest APK built that way still carried the 108 files of PICO's `Resources` folder (controller and hand models, textures, shaders), its OpenXR feature objects and PICO script names. See [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) for what remains in each APK and under which licence. **XRScan → Build → Dump excluded player assemblies** lists the assemblies the filter would drop.
 
-To check an APK, list its script assemblies and plugins:
+To check an APK, scan every file in it, serialized assets included:
 
 ```
-unzip -p CISpatialCompanion-Quest.apk assets/bin/Data/ScriptingAssemblies.json   # no MCPForUnity.*, no *PICO* / Unity.XR.OpenXRPico
-unzip -l CISpatialCompanion-Quest.apk | findstr /i "pico pxr pvr tob"             # no PICO native libs
+python tools/apk/scan_apk.py CISpatialCompanion-Quest.apk --target quest   # exit 0 = no PICO, MCP for Unity, Ready Player Me or Visual Scripting content
+python tools/apk/scan_apk.py CISpatialCompanion-Pico.apk --target pico     # PICO content expected; the rest must be absent
 ```
+
+and read the build report at the end of the build's Editor log ("Used Assets and files from the Resources folder"): for Quest no `Packages/com.unity.xr.openxr.picoxr/` path may appear. Listing assemblies (`assets/bin/Data/ScriptingAssemblies.json`) or files (`unzip -l`) only shows code and native libraries, not assets.
 
 ## Verifying a build
 
@@ -96,4 +100,4 @@ CI runs the Quest checks on every build it makes ([CI.md](CI.md#quest-apk-checks
 
 ## Build Profiles
 
-Unity's **Build Profiles** window can set the define per profile, but it does not run `XRScanBuilder`, so a profile build does not switch the OpenXR features and packages whatever feature set was saved last. Use the **XRScan → Build** menu or the command line for anything you install.
+Unity's **Build Profiles** window can set the define per profile, but it does not run `XRScanBuilder`: a profile build does not switch the OpenXR features (it packages whatever feature set was saved last) and cannot leave packages out. A Quest profile (`XRSCAN_QUEST`) therefore fails in `XRScanVendorPackageGuard` while the PICO SDK is installed. Use the **XRScan → Build** menu or the command line for anything you install.
