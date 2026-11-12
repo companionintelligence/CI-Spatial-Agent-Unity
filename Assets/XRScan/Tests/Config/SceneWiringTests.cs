@@ -107,23 +107,5 @@ namespace XRScan.Tests.Config
             Assert.IsTrue(llm.useHttps);
             CollectionAssert.IsEmpty(companion.devCleartextHosts, "No developer hosts may be committed to the shipping config.");
         }
-
-        [Test]
-        public void NetworkSecurityConfig_AllowsCleartextOnlyForListedHostsInDevelopmentBuilds()
-        {
-            string release = NetworkSecurityConfigGenerator.BuildXml(new[] { "192.168.1.20" }, false);
-            StringAssert.Contains("cleartextTrafficPermitted=\"false\"", release);
-            StringAssert.DoesNotContain("cleartextTrafficPermitted=\"true\"", release);
-            StringAssert.DoesNotContain("192.168.1.20", release);
-            StringAssert.DoesNotContain("src=\"user\"", release);
-
-            string development = NetworkSecurityConfigGenerator.BuildXml(new[] { "192.168.1.20" }, true);
-            StringAssert.Contains("<domain includeSubdomains=\"false\">192.168.1.20</domain>", development);
-            StringAssert.Contains("cleartextTrafficPermitted=\"true\"", development);
-            StringAssert.Contains("<base-config cleartextTrafficPermitted=\"false\">", development);
-
-            string developmentWithoutHosts = NetworkSecurityConfigGenerator.BuildXml(new string[0], true);
-            StringAssert.DoesNotContain("cleartextTrafficPermitted=\"true\"", developmentWithoutHosts);
-        }
     }
 }

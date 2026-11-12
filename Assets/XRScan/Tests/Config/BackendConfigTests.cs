@@ -73,6 +73,9 @@ namespace XRScan.Tests.Config
             var dev = _llm.ResolveEndpoint(true, LanOllama);
             Assert.IsTrue(dev.IsUsable);
             Assert.AreEqual("http://192.168.1.20:11434", dev.Url.ToString());
+
+            // The URL OllamaBackend sends to, under the active (empty) allowlist: never the blocked http endpoint.
+            StringAssert.EndsWith(".invalid", _llm.BaseUrl());
         }
 
         [Test]
@@ -135,6 +138,20 @@ namespace XRScan.Tests.Config
             Assert.IsTrue(check.IsUsable);
             Assert.AreEqual("api.openai.com", check.Url.Host);
             Assert.IsTrue(_voice.requiresApiKey);
+        }
+
+        [Test]
+        public void Voice_LanHttp_OnlyInDevelopmentBuildsForAllowListedHosts()
+        {
+            _voice.selfHostedBaseUrl = "http://192.168.1.20:8000";
+            Assert.AreEqual(EndpointStatus.CleartextBlocked, _voice.ResolveSttEndpoint(false, LanOllama).Status);
+            Assert.AreEqual(EndpointStatus.CleartextBlocked, _voice.ResolveTtsEndpoint(true, NoHosts).Status);
+            Assert.AreEqual("http://192.168.1.20:8000/v1/audio/transcriptions",
+                _voice.ResolveSttEndpoint(true, LanOllama).Url.ToString());
+
+            // The URLs CloudWhisperStt / CloudTts send to, under the active (empty) allowlist.
+            StringAssert.EndsWith(".invalid", _voice.sttEndpoint);
+            StringAssert.EndsWith(".invalid", _voice.ttsEndpoint);
         }
 
         [Test]
