@@ -8,3 +8,5 @@
 *.mat        text=auto eol=lf
 *.anim       text=auto eol=lf
 *.controller text=auto eol=lf
+# Shell scripts keep LF line endings in every checkout: bash, in CI and in Git Bash alike, fails on CRLF.
+*.sh         text eol=lf

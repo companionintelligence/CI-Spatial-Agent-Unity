@@ -38,6 +38,8 @@ jobs:
     outputs:
       unity-version: ${{ steps.unity.outputs.version }}
       licence-ok: ${{ steps.licence.outputs.available }}
+      version: ${{ steps.version.outputs.version }}
+      version-code: ${{ steps.version.outputs.code }}
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -54,6 +56,26 @@ jobs:
           fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "Unity editor \`${version}\` (from ProjectSettings/ProjectVersion.txt)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Read the app version from Player Settings
+        # Player Settings > Version (bundleVersion) is the one place the version is set: XRScanBuilder uses it as
+        # the versionName and derives the versionCode from it, MAJOR*1000000 + MINOR*1000 + PATCH.
+        id: version
+        run: |
+          settings=ProjectSettings/ProjectSettings.asset
+          version="$(sed -n 's/^[[:space:]]*bundleVersion:[[:space:]]*//p' "$settings" | tr -d '\r' | head -n 1)"
+          if [[ ! "$version" =~ ^([0-9]{1,4})\.([0-9]{1,3})\.([0-9]{1,3})([-+][0-9A-Za-z.+-]*)?$ ]]; then
+            echo "::error file=${settings}::bundleVersion '${version}' is not MAJOR.MINOR.PATCH with MINOR and PATCH below 1000."
+            exit 1
+          fi
+          code=$(( 10#${BASH_REMATCH[1]} * 1000000 + 10#${BASH_REMATCH[2]} * 1000 + 10#${BASH_REMATCH[3]} ))
+          if (( code < 1 || code > 2100000000 )); then
+            echo "::error file=${settings}::bundleVersion '${version}' gives versionCode ${code}, outside 1 to 2100000000."
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "code=${code}" >> "$GITHUB_OUTPUT"
+          echo "App version \`${version}\`, versionCode \`${code}\` (from Player Settings > Version)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check the Unity licence secrets
         id: licence
@@ -90,6 +112,8 @@ jobs:
     timeout-minutes: 150
     env:
       UNITY_VERSION: ${{ needs.setup.outputs.unity-version }}
+      VERSION_NAME: ${{ needs.setup.outputs.version }}
+      VERSION_CODE: ${{ needs.setup.outputs.version-code }}
       # XRScanBuilder's default output path (Builds/ is git-ignored).
       APK: Builds/CISpatialCompanion-Quest.apk
     steps:
@@ -136,8 +160,8 @@ jobs:
           unityVersion: ${{ env.UNITY_VERSION }}
           targetPlatform: Android
           buildMethod: XRScan.EditorTools.XRScanBuilder.BuildQuest
-          # XRScanBuilder sets its own player settings and output path; skip game-ci's
-          # git-based versioning (it would need full history and a clean tree).
+          # XRScanBuilder sets its own player settings, output path and version (from Player Settings >
+          # Version); skip game-ci's git-based versioning (it would need full history and a clean tree).
           versioning: None
           # Run the editor without -quit. The builder takes MCP for Unity out of the project before
           # the Quest build (the PICO SDK is not in it), which needs a script reload that -quit would
@@ -153,114 +177,9 @@ jobs:
           key: ${{ steps.library.outputs.cache-primary-key }}
 
       - name: Verify the APK
-        # XRScanBuilder already exits non-zero (failing the build step) when the build fails or
-        # writes no APK; these checks verify what was packaged. The expectations mirror
-        # docs/BUILD.md.
-        run: |
-          if [[ ! -s "$APK" ]]; then
-            echo "::error title=Quest APK missing::${APK} was not produced. Search the build log above for '[XRScanBuilder]'."
-            exit 1
-          fi
-          errors=()
-
-          # Native libraries: ARM64 only, and none of the PICO / MockHMD libraries that
-          # XRScanNativeLibExcluder strips from Quest builds.
-          mapfile -t libs < <(unzip -Z1 "$APK" | grep '^lib/' || true)
-          has_lib() {
-            local lib
-            for lib in "${libs[@]}"; do
-              if [[ "$lib" == "$1" ]]; then return 0; fi
-            done
-            return 1
-          }
-          for lib in "${libs[@]}"; do
-            [[ "$lib" == lib/arm64-v8a/* ]] || errors+=("Non-ARM64 native library packaged: ${lib}")
-          done
-          for name in libil2cpp.so libunity.so libopenxr_loader.so; do
-            has_lib "lib/arm64-v8a/${name}" || errors+=("Missing native library lib/arm64-v8a/${name}")
-          done
-          for name in libPICO_TOBAPI.so libpvrcapturelib.so libpxrplatformloader.so libCameraRenderingPlugin.so libopenxr_pico.so libUnityMockHMD.so; do
-            if has_lib "lib/arm64-v8a/${name}"; then errors+=("PICO/MockHMD library packaged in the Quest APK: ${name}"); fi
-          done
-
-          # Every file in the APK, serialized assets included: no PICO SDK, MCP for Unity,
-          # Ready Player Me or Visual Scripting content (standard-library Python).
-          if ! python3 tools/apk/scan_apk.py "$APK" --target quest; then
-            errors+=("tools/apk/scan_apk.py found content the Quest APK must not ship, or could not scan it (see its output above)")
-          fi
-
-          # THIRD_PARTY_NOTICES.md names every library the APK packages: each Maven artifact that left a
-          # META-INF/*.version file (with that version), each native library and each Java package in
-          # classes.dex. Unity's Gradle build adds libraries (AndroidX, Kotlin, kotlinx.coroutines,
-          # GameActivity, the NDK's libc++_shared.so) that packages-lock.json, and so the EditMode test
-          # ThirdPartyNoticesTests, never sees.
-          if ! python3 tools/apk/check_notices.py "$APK"; then
-            errors+=("tools/apk/check_notices.py found libraries in the APK that THIRD_PARTY_NOTICES.md does not name, or could not read the APK (see its output above)")
-          fi
-
-          # Manifest: dump it with aapt2 from the Unity Android image the build just used.
-          cat > "$RUNNER_TEMP/aapt2-dump.sh" <<'SH'
-          aapt2="$(find /opt -type f -name aapt2 -path '*build-tools*' 2>/dev/null | sort -V | tail -n 1)"
-          if [ -z "$aapt2" ]; then
-            aapt2="$(find / -xdev -type f -name aapt2 -path '*build-tools*' 2>/dev/null | sort -V | tail -n 1)"
-          fi
-          if [ -z "$aapt2" ]; then echo "aapt2 not found in the Unity image" >&2; exit 1; fi
-          "$aapt2" dump badging "$1" || true
-          "$aapt2" dump permissions "$1" || true
-          "$aapt2" dump xmltree --file AndroidManifest.xml "$1" || true
-          SH
-          image=""
-          while read -r ref; do
-            if [[ "$ref" == "unityci/editor:ubuntu-${UNITY_VERSION}-android-"* ]]; then image="$ref"; break; fi
-          done < <(docker image ls --format '{{.Repository}}:{{.Tag}}')
-          manifest=""
-          if [[ -z "$image" ]]; then
-            errors+=("No unityci/editor Android image for ${UNITY_VERSION} found locally to run aapt2")
-          elif ! manifest="$(docker run --rm --entrypoint /bin/bash \
-              -v "$RUNNER_TEMP/aapt2-dump.sh:/aapt2-dump.sh:ro" -v "$PWD/Builds:/apk:ro" \
-              "$image" /aapt2-dump.sh "/apk/$(basename "$APK")")"; then
-            errors+=("aapt2 could not read the APK manifest")
-          fi
-          if [[ -n "$manifest" ]]; then
-            expect() { grep -Eq -- "$1" <<< "$manifest" || errors+=("$2"); }
-            reject() { if grep -Eq -- "$1" <<< "$manifest"; then errors+=("$2"); fi; }
-            expect "^package: name='com\.companionintelligence\.xrscan'" "Package name is not com.companionintelligence.xrscan"
-            expect "^(minSdkVersion|sdkVersion):'32'$" "Minimum SDK is not API 32"
-            expect "^targetSdkVersion:'34'$" "Target SDK is not API 34 (the Meta Horizon Store requires exactly 34)"
-            expect "^native-code: 'arm64-v8a'$" "native-code is not exactly arm64-v8a"
-            expect "name='android\.permission\.RECORD_AUDIO'" "Missing android.permission.RECORD_AUDIO (added by XRScanManifestPostProcessor)"
-            expect "name='horizonos\.permission\.HEADSET_CAMERA'" "Missing horizonos.permission.HEADSET_CAMERA (comes from the Meta AR camera feature)"
-            expect "name='com\.oculus\.permission\.USE_SCENE'" "Missing com.oculus.permission.USE_SCENE (comes from com.unity.xr.meta-openxr)"
-            reject "com\.pvr\.tobactivate\.permission\.AUTH_CHECK" "PICO permission com.pvr.tobactivate.permission.AUTH_CHECK is in the Quest APK"
-            # Meta features XRScanBuilder keeps off: Social Eye Gaze and the unused anchor, boundary and colocation ones.
-            for permission in EYE_TRACKING BOUNDARY_VISIBILITY IMPORT_EXPORT_IOT_MAP_DATA USE_COLOCATION_DISCOVERY_API; do
-              reject "com\.oculus\.permission\.${permission}" "com.oculus.permission.${permission} is in the Quest APK (its Meta feature should be off)"
-            done
-            # Passthrough before the splash screen (Meta camera feature, Passthrough Pre Splash Screen).
-            if ! grep -A 2 '"com\.oculus\.ossplash\.background"' <<< "$manifest" | grep -q '"passthrough-contextual"'; then
-              errors+=("Missing meta-data com.oculus.ossplash.background = passthrough-contextual (Passthrough Pre Splash Screen)")
-            fi
-          fi
-
-          {
-            echo "### Quest APK"
-            echo
-            echo "- File: \`${APK}\` ($(du -h "$APK" | cut -f 1))"
-            echo "- SHA-256: \`$(sha256sum "$APK" | cut -d ' ' -f 1)\`"
-            echo "- Unity: \`${UNITY_VERSION}\`"
-            if [[ -n "$manifest" ]]; then
-              echo
-              echo '```'
-              grep -E "^(package|sdkVersion|minSdkVersion|targetSdkVersion|native-code|uses-permission):" <<< "$manifest" | sort -u || true
-              echo '```'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          if (( ${#errors[@]} > 0 )); then
-            for error in "${errors[@]}"; do echo "::error title=Quest APK check failed::${error}"; done
-            exit 1
-          fi
-          echo "Quest APK checks passed."
+        # XRScanBuilder already exits non-zero (failing the build step) when the build fails or writes no APK.
+        # The script checks what was packaged, the manifest and the signature (docs/CI.md, "Quest APK checks").
+        run: bash tools/apk/check_quest_package.sh "$APK" debug
 
       - name: Upload the APK
         # Uploaded even when a check above failed, so the APK can be inspected.

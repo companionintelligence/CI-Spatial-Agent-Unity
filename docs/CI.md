@@ -72,21 +72,22 @@ The Unity images are large, so every Unity job first deletes preinstalled SDKs t
 | `test-results-playmode` | PlayMode job | `playmode-results.xml` and `playmode.log` |
 | `CISpatialCompanion-Quest.apk` | Quest APK job | The APK itself, not zipped. |
 
-Artifacts are kept for 14 days. Each job also writes a run summary: pass, fail and skip counts with the failing tests, or the APK's size, SHA-256 and manifest highlights.
+Artifacts are kept for 14 days. Each job also writes a run summary: pass, fail and skip counts with the failing tests, or the APK's size, SHA-256, version, signer and manifest highlights.
 
 The workflow passes no release keystore (see [Release signing](BUILD.md#release-signing-and-version-code)), so the APK is signed with Unity's debug key. Sideload it with `adb install -r CISpatialCompanion-Quest.apk`. It is not suitable for a store upload.
 
 ## Quest APK checks
 
-The build step runs the editor without `-quit` (game-ci's `manualExit: true`): `XRScanBuilder` takes MCP for Unity out of the project before the Quest build (the PICO SDK is not in it; see [BUILD.md](BUILD.md#the-pico-sdk-is-added-only-for-the-pico-build)), which needs a script reload that `-quit` would cut short, and exits by itself once the build has ended and the project files are restored. It exits with code 1, failing the step, when the build fails, throws or writes no APK. The `Verify the APK` step then checks what was packaged and fails when any of these is not true:
+The build step runs the editor without `-quit` (game-ci's `manualExit: true`): `XRScanBuilder` takes MCP for Unity out of the project before the Quest build (the PICO SDK is not in it; see [BUILD.md](BUILD.md#the-pico-sdk-is-added-only-for-the-pico-build)), which needs a script reload that `-quit` would cut short, and exits by itself once the build has ended and the project files are restored. It exits with code 1, failing the step, when the build fails, throws or writes no APK. The `Verify the APK` step then runs `tools/apk/check_quest_package.sh`, which fails when any of these is not true:
 
 - `Builds/CISpatialCompanion-Quest.apk` exists and is not empty.
 - `tools/apk/scan_apk.py --target quest` finds no PICO SDK, MCP for Unity, Ready Player Me or Visual Scripting content in any file of the APK, serialized assets included.
 - `tools/apk/check_notices.py` finds every library the APK packages named in `THIRD_PARTY_NOTICES.md`: each Maven artifact that left a `META-INF/*.version` file, with that version, each native library, and each Java package in `classes.dex`. Unity's Gradle build adds libraries (AndroidX, Kotlin, kotlinx.coroutines, GameActivity, the NDK's `libc++_shared.so`) that `Packages/packages-lock.json`, and so `ThirdPartyNoticesTests`, never sees; when a dependency change adds one, this check fails until the notices list it.
 - Native libraries are ARM64 only. `libil2cpp.so`, `libunity.so` and `libopenxr_loader.so` are present, and none of the PICO or Mock HMD libraries that `XRScanNativeLibExcluder` strips from Quest builds are.
-- The manifest, read with `aapt2` from the Android SDK inside the Unity image, has package `com.companionintelligence.xrscan`, minimum SDK 32, target SDK 34, native code `arm64-v8a` only, the permissions `android.permission.RECORD_AUDIO`, `horizonos.permission.HEADSET_CAMERA` and `com.oculus.permission.USE_SCENE`, and none of the PICO permission `com.pvr.tobactivate.permission.AUTH_CHECK` or the Meta permissions `EYE_TRACKING`, `BOUNDARY_VISIBILITY`, `IMPORT_EXPORT_IOT_MAP_DATA` and `USE_COLOCATION_DISCOVERY_API` (`com.oculus.permission.*`, from Meta features the builder keeps off). Its `com.oculus.ossplash.background` meta-data is `passthrough-contextual` (read with `aapt2 dump xmltree`).
+- The manifest, read with `aapt2` from the Android SDK inside the Unity image, has package `com.companionintelligence.xrscan`, the versionName and versionCode that Setup derived from Player Settings → Version, minimum SDK 32, target SDK 34, native code `arm64-v8a` only, the permissions `android.permission.RECORD_AUDIO`, `horizonos.permission.HEADSET_CAMERA` and `com.oculus.permission.USE_SCENE`, and none of the PICO permission `com.pvr.tobactivate.permission.AUTH_CHECK` or the Meta permissions `EYE_TRACKING`, `BOUNDARY_VISIBILITY`, `IMPORT_EXPORT_IOT_MAP_DATA` and `USE_COLOCATION_DISCOVERY_API` (`com.oculus.permission.*`, from Meta features the builder keeps off). Its `com.oculus.ossplash.background` meta-data is `passthrough-contextual` (read with `aapt2 dump xmltree`).
+- `apksigner verify`, from the same SDK, finds an APK signature scheme v2 signature by exactly one signer. The summary names the signer.
 
-These are the expectations from [BUILD.md](BUILD.md#verifying-a-build). If what a Quest build should contain changes, update the `Verify the APK` step in `quest-apk.yml` and BUILD.md together.
+These are the expectations from [BUILD.md](BUILD.md#verifying-a-build). The script also checks an app bundle (`-aab`): it reads the manifest with `bundletool dump manifest`, finds the native libraries under `base/lib/`, and verifies the JAR signature with `jarsigner` and `keytool -printcert`. If what a Quest build should contain changes, update `tools/apk/check_quest_package.sh` and BUILD.md together.
 
 ## Pinned actions
 
