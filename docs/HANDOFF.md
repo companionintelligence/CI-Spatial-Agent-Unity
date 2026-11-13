@@ -18,7 +18,7 @@ _State of `main` after PR #18, together with the build-hygiene, runtime-configur
 
 ## Next up
 
-1. **Turn on CI.** Add the Unity licence secrets ([CI.md](CI.md#licence-secrets)) and watch the first run. The workflows have been validated statically but have not run on GitHub yet.
+1. **Turn on CI.** Add the Unity licence secrets, `UNITY_EMAIL` and `UNITY_PASSWORD` (plus `UNITY_SERIAL` for a paid seat; [CI.md](CI.md#licence-secrets)), and watch the first run. The workflows have been validated statically but have not run on GitHub yet.
 2. **Configure servers.** Set the LLM, speech and CV servers from the in-headset settings panel (menu button / F1), PlayerPrefs or the environment (`XRSCAN_LLM_URL`, `XRSCAN_SPEECH_URL`, `XRSCAN_SERVER_URL`). Speech defaults to a self-hosted server; cloud speech needs the explicit opt-in. These are config only and never committed.
 3. **More LLM backends.** Only `OllamaBackend` (plus `MockLlmBackend`) exists. OpenAI, Claude or Companion Intelligence server backends would go behind `ILlmBackend`.
 4. **On-device models.** `SentisYoloDetector`, `SentisWhisperStt` and `PiperTts` are scaffolds that need `.onnx` models.

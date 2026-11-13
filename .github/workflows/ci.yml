@@ -37,8 +37,8 @@ jobs:
     uses: ./.github/workflows/unity-tests.yml
     secrets: inherit
 
-  # Only builds once both test suites pass, so at most two Unity licence
-  # activations are in use at the same time.
+  # Only builds once both test suites pass, and the test jobs run one after
+  # the other, so a run holds at most one Unity licence activation at a time.
   quest-apk:
     name: Quest APK
     needs: tests

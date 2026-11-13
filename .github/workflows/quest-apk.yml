@@ -12,17 +12,14 @@ name: Quest APK
 on:
   workflow_call:
     secrets:
-      UNITY_LICENSE:
-        description: Contents of a Unity Personal licence file (Unity_lic.ulf). Leave unset when UNITY_SERIAL is used.
-        required: false
-      UNITY_SERIAL:
-        description: Unity Plus/Pro serial key. Leave unset when UNITY_LICENSE is used.
-        required: false
       UNITY_EMAIL:
-        description: E-mail address of the Unity ID that owns the licence.
+        description: E-mail address of the Unity ID that holds the licence (Personal or a paid seat).
         required: false
       UNITY_PASSWORD:
-        description: Password of the Unity ID that owns the licence.
+        description: Password of that Unity ID.
+        required: false
+      UNITY_SERIAL:
+        description: Serial key of a paid seat (Pro, Enterprise, Industry). Leave unset for Unity Personal.
         required: false
   workflow_dispatch:
 
@@ -61,17 +58,16 @@ jobs:
       - name: Check the Unity licence secrets
         id: licence
         env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
           # Fork and Dependabot pull requests never receive repository secrets.
           NO_SECRETS_EXPECTED: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) || github.actor == 'dependabot[bot]' }}
+        # Unity Personal activates from the Unity ID alone; a paid seat also needs UNITY_SERIAL, which the
+        # activation step reports if it is wrong. UNITY_LICENSE (a .ulf file) is not used: see docs/CI.md.
         run: |
           missing=()
           [[ -n "$UNITY_EMAIL" ]] || missing+=("UNITY_EMAIL")
           [[ -n "$UNITY_PASSWORD" ]] || missing+=("UNITY_PASSWORD")
-          [[ -n "$UNITY_LICENSE" || -n "$UNITY_SERIAL" ]] || missing+=("UNITY_LICENSE or UNITY_SERIAL")
           if (( ${#missing[@]} == 0 )); then
             echo "available=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -120,15 +116,23 @@ jobs:
           restore-keys: |
             Library-${{ runner.os }}-android-${{ env.UNITY_VERSION }}-
 
+      - name: Remove stale helper process IDs from the restored Library
+        # Unity records the process IDs of its helpers in Library and kills those IDs when it next starts. In a
+        # new container such an ID can belong to the editor itself, which then dies with exit code 137. game-ci/cli
+        # removes these files itself from v0.1.74 on; the pinned v0.1.72 does not.
+        run: rm -f Library/ilpp.pid Library/MSBuild/buildhost.pid
+
       - name: Build with XRScanBuilder.BuildQuest
         id: build
-        uses: game-ci/unity-builder@adaf7cd8f42fd48fbbf2d4f5f67ca30d87f819f1 # v5.0.1
+        uses: game-ci/unity-builder@eb1b9fba120c6e62c9fb7a7a81d6c107ce004c45 # v6.0.0
         env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
         with:
+          # The action runs this release of game-ci/cli, which does the activation and the build
+          # (docs/CI.md, "Pinned actions").
+          cliVersion: v0.1.72
           unityVersion: ${{ env.UNITY_VERSION }}
           targetPlatform: Android
           buildMethod: XRScan.EditorTools.XRScanBuilder.BuildQuest
