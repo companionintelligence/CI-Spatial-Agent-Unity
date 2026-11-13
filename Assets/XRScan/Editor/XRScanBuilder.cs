@@ -194,7 +194,10 @@ namespace XRScan.EditorTools
                 options = BuildOptions.None
             };
 
-            var startedUtc = DateTime.UtcNow;
+            // A stale APK from an earlier build must not pass for this one, so it goes first. Its file time is no
+            // test: when nothing has changed since the last build, Unity's incremental build copies its cached Gradle
+            // output into place and keeps that file's original modification time (seen on 6000.6.9f1).
+            if (File.Exists(apkPath)) File.Delete(apkPath);
             var report = BuildPipeline.BuildPlayer(opts);
             var s = report.summary;
             // First line of each error only: the full text is already in the editor log, and a Gradle
@@ -208,9 +211,8 @@ namespace XRScan.EditorTools
                 .ToList();
             var errorList = errors.Count > 0 ? ":\n  " + string.Join("\n  ", errors) : ".";
 
-            // A stale APK from an earlier build must not pass for this one.
             var apk = new FileInfo(apkPath);
-            bool apkWritten = apk.Exists && apk.Length > 0 && apk.LastWriteTimeUtc >= startedUtc.AddSeconds(-5);
+            bool apkWritten = apk.Exists && apk.Length > 0;
 
             if (s.result == BuildResult.Succeeded && apkWritten)
             {
