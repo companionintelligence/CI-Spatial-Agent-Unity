@@ -85,6 +85,7 @@ The build step runs the editor without `-quit` (game-ci's `manualExit: true`): `
 
 - `Builds/CISpatialCompanion-Quest.apk` exists and is not empty.
 - `tools/apk/scan_apk.py --target quest` finds no PICO SDK, MCP for Unity, Ready Player Me or Visual Scripting content in any file of the APK, serialized assets included.
+- `tools/apk/check_notices.py` finds every library the APK packages named in `THIRD_PARTY_NOTICES.md`: each Maven artifact that left a `META-INF/*.version` file, with that version, each native library, and each Java package in `classes.dex`. Unity's Gradle build adds libraries (AndroidX, Kotlin, kotlinx.coroutines, GameActivity, the NDK's `libc++_shared.so`) that `Packages/packages-lock.json`, and so `ThirdPartyNoticesTests`, never sees; when a dependency change adds one, this check fails until the notices list it.
 - Native libraries are ARM64 only. `libil2cpp.so`, `libunity.so` and `libopenxr_loader.so` are present, and none of the PICO or Mock HMD libraries that `XRScanNativeLibExcluder` strips from Quest builds are.
 - The manifest, read with `aapt2` from the Android SDK inside the Unity image, has package `com.companionintelligence.xrscan`, minimum SDK 32, target SDK 34, native code `arm64-v8a` only, the permissions `android.permission.RECORD_AUDIO`, `horizonos.permission.HEADSET_CAMERA` and `com.oculus.permission.USE_SCENE`, and none of the PICO permission `com.pvr.tobactivate.permission.AUTH_CHECK` or the Meta permissions `EYE_TRACKING`, `BOUNDARY_VISIBILITY`, `IMPORT_EXPORT_IOT_MAP_DATA` and `USE_COLOCATION_DISCOVERY_API` (`com.oculus.permission.*`, from Meta features the builder keeps off). Its `com.oculus.ossplash.background` meta-data is `passthrough-contextual` (read with `aapt2 dump xmltree`).
 
@@ -116,7 +117,7 @@ Unity -batchmode -projectPath . -runTests -testPlatform PlayMode -testResults re
 Unity -batchmode -projectPath . -buildTarget Android -executeMethod XRScan.EditorTools.XRScanBuilder.BuildQuest -logFile results/quest-build.log
 ```
 
-`Unity` is the editor executable (`Unity.exe` on Windows). The build writes `Builds/CISpatialCompanion-Quest.apk` and exits with 0 when it was built, 1 when it failed. Then run `python tools/apk/scan_apk.py Builds/CISpatialCompanion-Quest.apk --target quest`.
+`Unity` is the editor executable (`Unity.exe` on Windows). The build writes `Builds/CISpatialCompanion-Quest.apk` and exits with 0 when it was built, 1 when it failed. Then run `python tools/apk/scan_apk.py Builds/CISpatialCompanion-Quest.apk --target quest` and `python tools/apk/check_notices.py Builds/CISpatialCompanion-Quest.apk`.
 
 ## Troubleshooting
 

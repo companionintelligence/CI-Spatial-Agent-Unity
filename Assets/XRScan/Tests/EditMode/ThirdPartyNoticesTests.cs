@@ -11,6 +11,8 @@ namespace XRScan.Tests.EditMode
     /// Keeps <c>THIRD_PARTY_NOTICES.md</c> in step with the packages the project resolves: every package
     /// in <c>Packages/packages-lock.json</c> (direct or indirect, built-in modules aside) must be listed
     /// there by its id, so adding a dependency without recording its licence there fails the tests.
+    /// Libraries that only Unity's Gradle build adds (AndroidX, Kotlin, GameActivity, the NDK's libc++)
+    /// are not in the lock file; <c>tools/apk/check_notices.py</c> checks those against a built APK.
     /// </summary>
     public class ThirdPartyNoticesTests
     {

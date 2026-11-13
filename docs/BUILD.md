@@ -107,6 +107,15 @@ python tools/apk/scan_apk.py CISpatialCompanion-Pico.apk --target pico     # PIC
 
 and read the build report at the end of the build's Editor log ("Used Assets and files from the Resources folder"): for Quest no `Packages/com.unity.xr.openxr.picoxr/` path may appear. Listing assemblies (`assets/bin/Data/ScriptingAssemblies.json`) or files (`unzip -l`) only shows code and native libraries, not assets.
 
+Unity's Gradle build also adds libraries that no Unity package lists: with the GameActivity entry point, AndroidX (AppCompat, Core, ConstraintLayout and their dependencies), the GameActivity library, Kotlin and kotlinx.coroutines, plus `libgame.so` and the NDK's `libc++_shared.so`. [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md#13-android-libraries-added-by-the-gradle-build) lists them; to check that it names everything an APK or App Bundle packages, run
+
+```
+python tools/apk/check_notices.py CISpatialCompanion-Quest.apk   # exit 0 = every Maven library (with its version), native library and Java package is named
+python tools/apk/check_notices.py CISpatialCompanion-Pico.apk
+```
+
+It fails on a `META-INF/*.version` artifact the notices do not name with that version, a native library they do not name, or a class in `classes.dex` outside the package patterns they list. Update the notices whenever it fails.
+
 ## Verifying a build
 
 To check an APK, use `aapt2` from the editor's Android SDK (`aapt` v1 prints nothing for modern APKs):

@@ -185,6 +185,15 @@ jobs:
             errors+=("tools/apk/scan_apk.py found content the Quest APK must not ship, or could not scan it (see its output above)")
           fi
 
+          # THIRD_PARTY_NOTICES.md names every library the APK packages: each Maven artifact that left a
+          # META-INF/*.version file (with that version), each native library and each Java package in
+          # classes.dex. Unity's Gradle build adds libraries (AndroidX, Kotlin, kotlinx.coroutines,
+          # GameActivity, the NDK's libc++_shared.so) that packages-lock.json, and so the EditMode test
+          # ThirdPartyNoticesTests, never sees.
+          if ! python3 tools/apk/check_notices.py "$APK"; then
+            errors+=("tools/apk/check_notices.py found libraries in the APK that THIRD_PARTY_NOTICES.md does not name, or could not read the APK (see its output above)")
+          fi
+
           # Manifest: dump it with aapt2 from the Unity Android image the build just used.
           cat > "$RUNNER_TEMP/aapt2-dump.sh" <<'SH'
           aapt2="$(find /opt -type f -name aapt2 -path '*build-tools*' 2>/dev/null | sort -V | tail -n 1)"
