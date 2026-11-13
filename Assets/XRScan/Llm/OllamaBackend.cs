@@ -13,6 +13,8 @@ namespace XRScan.Llm
     /// vision (base64 image) requests. Ported from CI-Spatial's OllamaConnector; host / port /
     /// model come from LlmConfig, so there is no hardcoded IP. Swap for OpenAI / Claude / the
     /// Companion Intelligence server behind the same ILlmBackend seam with no downstream change.
+    /// Every request sends the fixed safety prompt and the persona as Ollama's <c>system</c> message
+    /// (<see cref="LlmConfig.BuildSystemMessage"/>) and the user's text, unchanged, as the prompt.
     /// </summary>
     public class OllamaBackend : MonoBehaviour, ILlmBackend
     {
@@ -63,27 +65,35 @@ namespace XRScan.Llm
             return true;
         }
 
-        [Serializable] private class Req { public string model; public string prompt; public bool stream; public Opt options; public string[] images; }
+        [Serializable] private class Req { public string model; public string system; public string prompt; public bool stream; public Opt options; public string[] images; }
         [Serializable] private class Opt { public int num_predict; public float temperature; }
         [Serializable] private class Resp { public string response; public bool done; public string error; }
+
+        /// <summary>
+        /// The /api/generate body: the safety prompt and the persona as the <c>system</c> message, the user's text as the
+        /// <c>prompt</c>, and the images (base64) for a vision request.
+        /// </summary>
+        public static string BuildRequestJson(LlmConfig cfg, string prompt, string[] images)
+        {
+            var req = new Req
+            {
+                model = cfg.model,
+                system = cfg.BuildSystemMessage(),
+                prompt = prompt ?? string.Empty,
+                stream = false,
+                options = new Opt { num_predict = cfg.maxTokens, temperature = cfg.temperature },
+                images = images ?? new string[0]
+            };
+            return JsonUtility.ToJson(req);
+        }
 
         private IEnumerator Send(string prompt, Texture2D image)
         {
             _processing = true;
             OnProcessingStarted.Invoke();
 
-            var req = new Req
-            {
-                model = config.model,
-                prompt = string.IsNullOrEmpty(config.systemPrompt)
-                    ? prompt
-                    : config.systemPrompt + "\n\nUser: " + prompt + "\n\nAssistant:",
-                stream = false,
-                options = new Opt { num_predict = config.maxTokens, temperature = config.temperature },
-                images = image != null ? new[] { Convert.ToBase64String(image.EncodeToJPG(75)) } : new string[0]
-            };
-
-            string json = JsonUtility.ToJson(req);
+            string json = BuildRequestJson(config, prompt,
+                image != null ? new[] { Convert.ToBase64String(image.EncodeToJPG(75)) } : null);
             using var web = new UnityWebRequest(_baseUrl + "/api/generate", "POST");
             web.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
             web.downloadHandler = new DownloadHandlerBuffer();

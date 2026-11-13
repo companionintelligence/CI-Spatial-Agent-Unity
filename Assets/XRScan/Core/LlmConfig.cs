@@ -53,8 +53,16 @@ namespace XRScan.Core
         /// </summary>
         public string model => ConfigOverrides.Resolve(PlayerPrefsModelKey, EnvModelKey, defaultModel, out _);
 
+        [Tooltip("The companion's persona. Every request sends the fixed SafetyPrompt first and this after it, together as " +
+                 "the model's system message (BuildSystemMessage); emptying this field never drops the safety prompt.")]
         [TextArea]
         public string systemPrompt = "You are a helpful spatial companion embodied in the user's room. Answer briefly about the room and the objects you can see.";
+
+        /// <summary>
+        /// The system message of every request: the fixed <see cref="SafetyPrompt.Text"/>, then <see cref="systemPrompt"/>.
+        /// </summary>
+        public string BuildSystemMessage() =>
+            string.IsNullOrWhiteSpace(systemPrompt) ? SafetyPrompt.Text : SafetyPrompt.Text + "\n\n" + systemPrompt.Trim();
 
         public int maxTokens = 300;
         public float temperature = 0.7f;

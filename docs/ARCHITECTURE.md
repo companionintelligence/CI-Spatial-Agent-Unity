@@ -148,6 +148,8 @@ flowchart TD
 
 `DetectorFactory` prefers the on-device detector when ready (untethered), else the CV server. With no CV server set, `RemoteCvDetector` reports itself not ready and a trigger pull tells the user to set one in Settings; nothing stands in with invented detections. Each scan sends the camera frame with its real size, a prompt listing common room objects (`ScanController.DefaultDetectionPrompt`) and the server's API token (`ServerConfig.ResolveApiToken`: the settings panel, or `XRSCAN_SERVER_TOKEN`), and reads the boxes as the server's contract defines them: `[x1, y1, x2, y2]` fractions of the image, origin top-left.
 
+Every language-model request carries the fixed `SafetyPrompt` as the system message (Ollama's `system` field), ahead of the configurable persona in `LlmConfig.systemPrompt`; neither the settings panel nor a config asset can change or drop it. The user's question goes as the prompt, unchanged.
+
 ---
 
 ## 6. Cross-platform strategy (Quest 3 + Pico)
