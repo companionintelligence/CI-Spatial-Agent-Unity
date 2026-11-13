@@ -20,6 +20,7 @@ namespace XRScan.Mocks
         public bool IsConnected => true;
         public bool IsProcessing => _processing;
         public string ServerAddress => "mock";
+        public string ModelName => "mock";
 
         public void Initialize() { }
         public void SendTextRequest(string prompt) => StartCoroutine(Reply(prompt));

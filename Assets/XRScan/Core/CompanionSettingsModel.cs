@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace XRScan.Core
 {
@@ -14,7 +15,8 @@ namespace XRScan.Core
         CvServer,
         DevCleartextHosts,
         ResetAll,
-        CvToken
+        CvToken,
+        ReportReply
     }
 
     /// <summary>How a setting is changed: typed endpoint, cycled choice, confirmed toggle, one-shot action, read-only,
@@ -101,9 +103,28 @@ namespace XRScan.Core
         /// <summary>True after the first activation of the cloud opt-in, until it is confirmed or cancelled.</summary>
         public bool CloudOptInPending { get; private set; }
 
+        /// <summary>
+        /// Sends a report the user confirmed (opens the email app, or posts it) and returns what to tell the user.
+        /// The settings panel sets it; without it reports cannot be sent.
+        /// </summary>
+        public Func<ReplyReport, string> SendReport { get; set; }
+
+        /// <summary>The app version a report names.</summary>
+        public string AppVersion { get; set; } = Application.version;
+
+        /// <summary>True after the first Report press hid the reply, until the report is sent or cancelled.</summary>
+        public bool ReportPending => _reportedReply != null;
+
+        /// <summary>The reason the pending report gives (left / right changes it).</summary>
+        public string ReportReason => ReplyReporting.Reasons[_reasonIndex];
+
+        private AiReply _reportedReply;
+        private int _reasonIndex;
+
         public List<SettingRow> BuildRows()
         {
             var rows = new List<SettingRow>();
+            rows.Add(ReportRow());
 
             var llm = _config.llm;
             if (llm != null)
@@ -261,6 +282,7 @@ namespace XRScan.Core
             {
                 case SettingId.LlmModel: return CycleModel(direction);
                 case SettingId.SpeechProvider: return ToggleProvider();
+                case SettingId.ReportReply: return CycleReason(direction);
                 default: return null;
             }
         }
@@ -273,6 +295,7 @@ namespace XRScan.Core
                 case SettingId.LlmModel: return CycleModel(1);
                 case SettingId.SpeechProvider: return ToggleProvider();
                 case SettingId.CloudOptIn: return ActivateCloudOptIn();
+                case SettingId.ReportReply: return ActivateReport();
                 case SettingId.ResetAll:
                     ResetAll();
                     return "All in-headset changes were removed." + " Restart the app to apply them everywhere.";
@@ -280,14 +303,88 @@ namespace XRScan.Core
             }
         }
 
-        /// <summary>Cancels a pending (unconfirmed) cloud opt-in, e.g. when the selection moves away.</summary>
-        public void CancelPending() => CloudOptInPending = false;
+        /// <summary>
+        /// Cancels a pending (unconfirmed) cloud opt-in or report, e.g. when the selection moves away. A reply hidden
+        /// for a report stays hidden.
+        /// </summary>
+        public void CancelPending()
+        {
+            CloudOptInPending = false;
+            _reportedReply = null;
+        }
 
         /// <summary>Removes every override written by the panel.</summary>
         public void ResetAll()
         {
             ConfigOverrides.ClearOverrides(OverrideKeys);
-            CloudOptInPending = false;
+            CancelPending();
+        }
+
+        /// <summary>
+        /// The Report control. The first press hides the latest AI reply at once (it stops being spoken) and shows
+        /// what a report sends and where; left / right picks the reason; a second press sends it through
+        /// <see cref="SendReport"/>.
+        /// </summary>
+        private SettingRow ReportRow()
+        {
+            const string label = "Report last reply";
+            if (_reportedReply != null)
+            {
+                var report = BuildReport(_reportedReply);
+                string detail = report.Channel == ReplyReportChannel.Unavailable
+                    ? "It cannot be sent: " + report.Error
+                    : "Sends " + ReplyReporting.Contents + " (model " + _reportedReply.Model + ", version " + AppVersion +
+                      ") to " + report.Recipient + ". Left / right: reason. A: send. B: cancel.";
+                return new SettingRow(SettingId.ReportReply, SettingKind.Choice, label, "reason: " + ReportReason, detail, true);
+            }
+
+            var reply = AiReplies.Last;
+            if (reply == null)
+            {
+                return new SettingRow(SettingId.ReportReply, SettingKind.Action, label, "no reply yet",
+                    "After the companion answers, report an offensive, harmful or wrong answer here.", false);
+            }
+
+            return new SettingRow(SettingId.ReportReply, SettingKind.Action, label,
+                reply.Hidden ? "hidden" : Excerpt(reply.Reply),
+                "A: hide this reply, then report it to Companion Intelligence.", false);
+        }
+
+        private string ActivateReport()
+        {
+            if (_reportedReply == null)
+            {
+                var reply = AiReplies.Last;
+                if (reply == null) return "There is no reply to report yet.";
+
+                AiReplies.Hide(reply);
+                _reportedReply = reply;
+                _reasonIndex = 0;
+                return "Reply hidden. Pick a reason with left / right, then press A again to send the report.";
+            }
+
+            var report = BuildReport(_reportedReply);
+            _reportedReply = null;
+            if (report.Channel == ReplyReportChannel.Unavailable) return "The report could not be sent: " + report.Error;
+            return SendReport != null ? SendReport(report) : "Reports cannot be sent from here.";
+        }
+
+        private string CycleReason(int direction)
+        {
+            if (_reportedReply == null) return null;
+            int count = ReplyReporting.Reasons.Count;
+            _reasonIndex = ((_reasonIndex + (direction >= 0 ? 1 : -1)) % count + count) % count;
+            return "Reason: " + ReportReason;
+        }
+
+        private ReplyReport BuildReport(AiReply reply) =>
+            ReplyReporting.Build(reply, ReportReason, AppVersion, _config.ResolveReplyReportDestination(),
+                _isDevelopmentBuild, _devAllowlist);
+
+        private static string Excerpt(string text)
+        {
+            string flat = (text ?? string.Empty).Replace('\n', ' ').Replace('\r', ' ').Trim();
+            return "\"" + (flat.Length <= 40 ? flat : flat.Substring(0, 40).TrimEnd() + "...") + "\"";
         }
 
         public static string PrefsKeyFor(SettingId id)

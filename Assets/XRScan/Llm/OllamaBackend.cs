@@ -33,6 +33,7 @@ namespace XRScan.Llm
         public bool IsConnected => _connected;
         public bool IsProcessing => _processing;
         public string ServerAddress => config != null ? config.ResolveHost() + ":" + config.port : "(unconfigured)";
+        public string ModelName => config != null ? config.model : string.Empty;
 
         public void Configure(LlmConfig cfg) => config = cfg;
 

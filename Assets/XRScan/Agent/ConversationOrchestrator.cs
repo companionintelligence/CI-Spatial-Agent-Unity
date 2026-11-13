@@ -7,6 +7,8 @@ namespace XRScan.Agent
     /// The hybrid voice Q&amp;A loop: push-to-talk STT -&gt; LLM (grounded with the scanned-scene
     /// context from <see cref="SceneKnowledgeBase"/>) -&gt; TTS -&gt; visemes. All three stages are
     /// injected as interfaces, so any mix of server / on-device / mock backends works unchanged.
+    /// Each reply is recorded in <see cref="AiReplies"/> with its question and model, so the user can report it;
+    /// a reply the user hides stops being spoken.
     /// </summary>
     public class ConversationOrchestrator : MonoBehaviour
     {
@@ -19,6 +21,7 @@ namespace XRScan.Agent
         private ILlmBackend _llm;
         private ITextToSpeech _tts;
         private bool _wired;
+        private string _question = string.Empty;
 
         private void Awake()
         {
@@ -44,6 +47,7 @@ namespace XRScan.Agent
             if (_wired || _stt == null || _llm == null) return;
             _stt.OnTranscriptionComplete.AddListener(HandleTranscript);
             _llm.OnResponseReceived.AddListener(HandleLlmResponse);
+            AiReplies.HideRequested += StopSpeakingHiddenReply;
             _wired = true;
         }
 
@@ -52,6 +56,7 @@ namespace XRScan.Agent
             if (!_wired) return;
             _stt?.OnTranscriptionComplete.RemoveListener(HandleTranscript);
             _llm?.OnResponseReceived.RemoveListener(HandleLlmResponse);
+            AiReplies.HideRequested -= StopSpeakingHiddenReply;
             _wired = false;
         }
 
@@ -60,6 +65,7 @@ namespace XRScan.Agent
 
         private void HandleTranscript(string text)
         {
+            _question = text ?? string.Empty;
             string ctx = knowledge != null ? knowledge.BuildContext() : string.Empty;
             string prompt = string.IsNullOrEmpty(ctx) ? text : ctx + "\n\nUser question: " + text;
             Debug.Log("[Conversation] Q: " + text);
@@ -69,7 +75,10 @@ namespace XRScan.Agent
         private void HandleLlmResponse(string response)
         {
             Debug.Log("[Conversation] A: " + response);
+            AiReplies.Record(new AiReply(_question, response, _llm?.ModelName));
             _tts?.SpeakText(response);
         }
+
+        private void StopSpeakingHiddenReply(AiReply reply) => _tts?.StopSpeaking();
     }
 }

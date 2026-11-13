@@ -22,6 +22,7 @@ namespace XRScan.Voice
         private AudioSource _source;
         private bool _initialized;
         private bool _playing;
+        private int _stops; // StopSpeaking count: audio requested before a stop is never played
 
         public UnityEvent OnSpeechStarted { get; } = new UnityEvent();
         public UnityEvent OnSpeechCompleted { get; } = new UnityEvent();
@@ -45,11 +46,12 @@ namespace XRScan.Voice
         {
             if (!_initialized) Initialize();
             if (string.IsNullOrWhiteSpace(text) || config == null) return;
-            StartCoroutine(Generate(text));
+            StartCoroutine(Generate(text, _stops));
         }
 
         public void StopSpeaking()
         {
+            _stops++;
             if (_source != null) _source.Stop();
             _playing = false;
         }
@@ -63,7 +65,7 @@ namespace XRScan.Voice
         [Serializable]
         private class TtsPayload { public string model; public string input; public string voice; public string response_format; public float speed = 1f; }
 
-        private IEnumerator Generate(string text)
+        private IEnumerator Generate(string text, int stops)
         {
             string key = config.ResolveApiKey();
             if (config.requiresApiKey && string.IsNullOrEmpty(key)) { OnError.Invoke("Voice API key not set"); yield break; }
@@ -87,10 +89,11 @@ namespace XRScan.Voice
             yield return web.SendWebRequest();
             if (web.result != UnityWebRequest.Result.Success) { OnError.Invoke("TTS failed: " + web.error); yield break; }
 
-            yield return StartCoroutine(PlayBytes(web.downloadHandler.data, config.ttsFormat));
+            if (stops != _stops) yield break; // stopped (e.g. the reply was hidden) while the audio was on its way
+            yield return StartCoroutine(PlayBytes(web.downloadHandler.data, config.ttsFormat, stops));
         }
 
-        private IEnumerator PlayBytes(byte[] audio, string format)
+        private IEnumerator PlayBytes(byte[] audio, string format, int stops)
         {
             string ext = string.Equals(format, "wav", StringComparison.OrdinalIgnoreCase) ? "wav" : "mp3";
             var type = ext == "wav" ? AudioType.WAV : AudioType.MPEG;
@@ -102,7 +105,7 @@ namespace XRScan.Voice
             if (www.result == UnityWebRequest.Result.Success)
             {
                 var clip = DownloadHandlerAudioClip.GetContent(www);
-                if (clip != null)
+                if (clip != null && stops == _stops)
                 {
                     _source.clip = clip;
                     _playing = true;

@@ -17,6 +17,9 @@ namespace XRScan.Core
         bool IsProcessing { get; }
         string ServerAddress { get; }
 
+        /// <summary>The model that writes the replies (a report names it); empty when unknown.</summary>
+        string ModelName { get; }
+
         UnityEvent OnProcessingStarted { get; }
         UnityEvent<string> OnResponseReceived { get; }
         UnityEvent<string> OnError { get; }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Networking;
 using UnityEngine.UI;
 using XRScan.Core;
 
@@ -95,8 +96,10 @@ namespace XRScan.Settings
         {
             config = companionConfig;
             permissions = runtimePermissions;
-            _model = config != null ? new CompanionSettingsModel(config) : null;
+            _model = config != null ? CreateModel() : null;
         }
+
+        private CompanionSettingsModel CreateModel() => new CompanionSettingsModel(config) { SendReport = SendReport };
 
         private void Awake()
         {
@@ -159,7 +162,7 @@ namespace XRScan.Settings
                 yield break;
             }
 
-            if (_model == null) _model = new CompanionSettingsModel(config);
+            if (_model == null) _model = CreateModel();
 
             // Give head tracking a moment so the notice and the panel appear in front of the user.
             yield return new WaitForSecondsRealtime(autoOpenDelaySeconds);
@@ -547,6 +550,38 @@ namespace XRScan.Settings
             _rows.Add(new PanelRow { Type = RowType.Close, Label = "Close" });
             _selected = Mathf.Clamp(_selected, 0, _rows.Count - 1);
             if (_open) Render();
+        }
+
+        /// <summary>Sends a confirmed report: an email the user's mail app opens filled in, or an HTTPS POST.</summary>
+        private string SendReport(ReplyReport report)
+        {
+            switch (report.Channel)
+            {
+                case ReplyReportChannel.Email:
+                    Application.OpenURL(report.MailtoUri);
+                    return "Your email app opens with the report filled in; send it from there. If none opens, write to " +
+                           report.Recipient + ".";
+                case ReplyReportChannel.Https:
+                    StartCoroutine(PostReport(report));
+                    return "Sending the report to " + report.Recipient + "...";
+                default:
+                    return "The report could not be sent: " + report.Error;
+            }
+        }
+
+        private IEnumerator PostReport(ReplyReport report)
+        {
+            using var request = new UnityWebRequest(report.CheckedUrl, "POST");
+            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(report.Json));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            request.timeout = 15;
+            yield return request.SendWebRequest();
+
+            ShowNotice(request.result == UnityWebRequest.Result.Success
+                ? "Report sent. Thank you."
+                : "The report could not be sent (" + (request.responseCode > 0 ? request.responseCode.ToString() : request.error) +
+                  "). You can write to " + ReplyReporting.SupportAddress + " instead.");
         }
 
         private bool AnyPermissionMissing()

@@ -150,6 +150,8 @@ flowchart TD
 
 Every language-model request carries the fixed `SafetyPrompt` as the system message (Ollama's `system` field), ahead of the configurable persona in `LlmConfig.systemPrompt`; neither the settings panel nor a config asset can change or drop it. The user's question goes as the prompt, unchanged.
 
+Each reply is kept in memory as `AiReplies.Last` so it can be reported from inside the app. The settings panel's first row, **Report last reply**, hides it at once (its speech stops), shows what a report sends and where, and on a second press sends the question, the reply, the model name, the app version and a reason to `CompanionConfig.replyReportDestination`: by default an email, filled in, to the company's published support address, which needs no server; an `https://` endpoint that takes a JSON POST works too.
+
 ---
 
 ## 6. Cross-platform strategy (Quest 3 + Pico)
