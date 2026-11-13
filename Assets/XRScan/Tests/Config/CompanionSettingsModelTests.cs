@@ -154,5 +154,53 @@ namespace XRScan.Tests.Config
             Assert.AreEqual("off", rows.Single(r => r.Id == SettingId.CloudOptIn).Value);
             StringAssert.Contains("https only", rows.Single(r => r.Id == SettingId.DevCleartextHosts).Detail);
         }
+
+        [Test]
+        public void VisionToken_IsStoredAsAnOverride_AndTheRowNeverShowsIt()
+        {
+            var model = Release();
+            var before = model.BuildRows().Single(r => r.Id == SettingId.CvToken);
+            Assert.AreEqual(SettingKind.Secret, before.Kind);
+            Assert.AreEqual(CompanionSettingsModel.NotSet, before.Value);
+            Assert.IsTrue(before.IsWarning);
+
+            const string token = "Zx81-test_token.value~42";
+            Assert.IsTrue(model.TrySetSecret(SettingId.CvToken, "  " + token + " ", out var message), message);
+            StringAssert.DoesNotContain(token, message);
+            Assert.AreEqual(token, _sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
+            Assert.AreEqual(token, _companion.server.ResolveApiToken());
+            Assert.AreEqual(token, model.GetEditableText(SettingId.CvToken), "editing starts from the stored token");
+
+            var after = model.BuildRows().Single(r => r.Id == SettingId.CvToken);
+            Assert.AreEqual("set", after.Value);
+            Assert.IsFalse(after.IsWarning);
+            foreach (var row in model.BuildRows())
+            {
+                StringAssert.DoesNotContain(token, row.Value + row.Detail);
+            }
+        }
+
+        [Test]
+        public void VisionToken_BlankRemovesIt_AndTextWithSpacesIsRefused()
+        {
+            var model = Release();
+            Assert.IsFalse(model.TrySetSecret(SettingId.CvToken, "two words", out _));
+            Assert.IsNull(_sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
+            Assert.IsFalse(model.TrySetSecret(SettingId.CvServer, "abc", out _), "only secret rows take secrets");
+
+            Assert.IsTrue(model.TrySetSecret(SettingId.CvToken, "abc", out _));
+            Assert.IsTrue(model.TrySetSecret(SettingId.CvToken, "   ", out _));
+            Assert.IsNull(_sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
+            Assert.IsFalse(_companion.server.HasApiToken);
+        }
+
+        [Test]
+        public void ResetAll_AlsoForgetsTheVisionToken()
+        {
+            var model = Release();
+            model.TrySetSecret(SettingId.CvToken, "abc", out _);
+            model.Activate(SettingId.ResetAll);
+            Assert.IsNull(_sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
+        }
     }
 }

@@ -5,8 +5,9 @@ namespace XRScan.Core
 {
     /// <summary>
     /// Response shape of the CV server /v1/detect endpoint: parallel arrays of
-    /// bounding boxes, labels, and confidence scores. Each bbox is [x1,y1,x2,y2],
-    /// either pixel or normalized (see <see cref="BoundingBoxUtils"/>).
+    /// bounding boxes, labels, and confidence scores. Each bbox is [x1,y1,x2,y2]: corners as
+    /// fractions of the image size, origin top-left (the server's box contract; pixel boxes
+    /// from older servers are accepted too, see <see cref="BoundingBoxUtils"/>).
     /// </summary>
     [Serializable]
     public class DetectionResult

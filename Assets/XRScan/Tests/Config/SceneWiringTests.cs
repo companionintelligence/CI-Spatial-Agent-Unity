@@ -72,6 +72,15 @@ namespace XRScan.Tests.Config
             Assert.IsNotNull(panel);
             Assert.AreSame(companion, Field(panel, "config"));
             Assert.IsNotNull(FindBehaviour(_scene, nameof(RuntimePermissions)));
+
+            var scan = FindBehaviour(_scene, "ScanController");
+            Assert.IsNotNull(scan);
+            using (var serialized = new SerializedObject(scan))
+            {
+                string prompt = serialized.FindProperty("detectionPrompt").stringValue.Trim();
+                Assert.AreNotEqual("object", prompt, "a one-word prompt labels every box 'object'");
+                Assert.GreaterOrEqual(prompt.Split('.').Length, 10, "the vision server is asked for named objects");
+            }
         }
 
         [Test]

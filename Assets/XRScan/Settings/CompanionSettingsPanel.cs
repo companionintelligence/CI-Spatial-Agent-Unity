@@ -118,11 +118,13 @@ namespace XRScan.Settings
             _submit?.Enable();
             _back?.Enable();
             RuntimePermissions.Notice += ShowNotice;
+            UserNotices.Posted += ShowNotice;
         }
 
         private void OnDisable()
         {
             RuntimePermissions.Notice -= ShowNotice;
+            UserNotices.Posted -= ShowNotice;
             if (_open) Close();
             EndEdit();
             _toggle?.Disable();
@@ -323,6 +325,7 @@ namespace XRScan.Settings
             switch (setting.Kind)
             {
                 case SettingKind.Endpoint:
+                case SettingKind.Secret:
                     BeginEdit(setting.Id);
                     return;
                 case SettingKind.Info:
@@ -342,8 +345,10 @@ namespace XRScan.Settings
 
             if (TouchScreenKeyboard.isSupported)
             {
-                _systemKeyboard = TouchScreenKeyboard.Open(_editBuffer, TouchScreenKeyboardType.URL, false, false, false, false,
-                    "https://host:port");
+                bool secret = IsSecret(id);
+                _systemKeyboard = TouchScreenKeyboard.Open(_editBuffer,
+                    secret ? TouchScreenKeyboardType.Default : TouchScreenKeyboardType.URL, false, false, false, false,
+                    secret ? "API token" : "https://host:port");
             }
 
             _typingKeyboard = Keyboard.current;
@@ -412,12 +417,16 @@ namespace XRScan.Settings
             Refresh();
         }
 
+        private static bool IsSecret(SettingId id) => id == SettingId.CvToken;
+
         private void CommitEdit()
         {
             string text = _editBuffer;
             var id = _editId;
             EndEdit();
-            _model.TrySetEndpoint(id, text, out string message);
+            string message;
+            if (IsSecret(id)) _model.TrySetSecret(id, text, out message);
+            else _model.TrySetEndpoint(id, text, out message);
             ShowNotice(message);
             Refresh();
         }
@@ -507,7 +516,7 @@ namespace XRScan.Settings
                 var row = _rows[i];
                 bool selected = i == _selected;
                 string value = selected && _editing
-                    ? Clean(_editBuffer) + "<color=#ffd54a>_</color>"
+                    ? (IsSecret(_editId) ? new string('*', _editBuffer.Length) : Clean(_editBuffer)) + "<color=#ffd54a>_</color>"
                     : Clean(row.Value);
 
                 sb.Append(selected ? "<color=#ffd54a>> " : "<color=#e8eaed>   ").Append(Clean(row.Label));
@@ -524,7 +533,9 @@ namespace XRScan.Settings
             _body.text = sb.ToString();
 
             string help = _editing
-                ? "Type the address. A / Enter: save   B / Esc: cancel   (empty = use the default)"
+                ? (IsSecret(_editId)
+                    ? "Type the token. A / Enter: save   B / Esc: cancel   (empty = remove it)"
+                    : "Type the address. A / Enter: save   B / Esc: cancel   (empty = use the default)")
                 : "Thumbstick: select / change   A: edit or toggle   B or menu: close";
             _noticeRendered = HasNotice();
             _footer.text = (_noticeRendered ? "<color=#ffd54a>" + Clean(_notice) + "</color>\n" : string.Empty) +

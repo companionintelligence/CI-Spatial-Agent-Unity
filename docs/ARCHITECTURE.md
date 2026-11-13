@@ -146,7 +146,7 @@ flowchart TD
     ITTS --> Piper[Piper on-device]
 ```
 
-`DetectorFactory` prefers the on-device detector when ready (untethered), else the CV server when a URL is configured, else a mock.
+`DetectorFactory` prefers the on-device detector when ready (untethered), else the CV server. With no CV server set, `RemoteCvDetector` reports itself not ready and a trigger pull tells the user to set one in Settings; nothing stands in with invented detections. Each scan sends the camera frame with its real size, a prompt listing common room objects (`ScanController.DefaultDetectionPrompt`) and the server's API token (`ServerConfig.ResolveApiToken`: the settings panel, or `XRSCAN_SERVER_TOKEN`), and reads the boxes as the server's contract defines them: `[x1, y1, x2, y2]` fractions of the image, origin top-left.
 
 ---
 
@@ -220,4 +220,4 @@ flowchart LR
 Unity.exe -runTests -testPlatform EditMode -projectPath . -testResults results.xml -batchmode
 ```
 
-The whole app also runs in-Editor on mocks (`AppBootstrap.useMocks = true`) — no device, server, or keys required — which is how Phases 1–2 are verified.
+The whole app also runs in-Editor on mocks — no device, server, or keys required — which is how Phases 1–2 are verified. The mocks sit behind the developer switch `AppBootstrap.useMocks`, which is off by default and on only in the `XRScan_Dev` scene; release builds of a scene with it on fail (`ReleaseMockGuard`).

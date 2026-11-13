@@ -22,6 +22,7 @@ namespace XRScan.Platform
 
         public bool IsAvailable => _cameraManager != null && _cameraManager.enabled;
         public bool SupportsRgbFrames => _cameraManager != null;
+        public Vector2Int FrameSize => _frame != null ? new Vector2Int(_frame.width, _frame.height) : Vector2Int.zero;
 
         private void Awake() => _cameraManager = GetComponent<ARCameraManager>();
 

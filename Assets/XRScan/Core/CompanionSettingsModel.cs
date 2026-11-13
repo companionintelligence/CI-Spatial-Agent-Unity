@@ -13,17 +13,20 @@ namespace XRScan.Core
         CloudOptIn,
         CvServer,
         DevCleartextHosts,
-        ResetAll
+        ResetAll,
+        CvToken
     }
 
-    /// <summary>How a setting is changed: typed endpoint, cycled choice, confirmed toggle, one-shot action, or read-only.</summary>
+    /// <summary>How a setting is changed: typed endpoint, cycled choice, confirmed toggle, one-shot action, read-only,
+    /// or typed secret (shown only as set / not set).</summary>
     public enum SettingKind
     {
         Endpoint,
         Choice,
         Toggle,
         Action,
-        Info
+        Info,
+        Secret
     }
 
     /// <summary>One display row of the settings panel.</summary>
@@ -71,7 +74,11 @@ namespace XRScan.Core
             VoiceConfig.PlayerPrefsApiKey,
             VoiceConfig.PlayerPrefsSelfHostedTokenKey,
             ServerConfig.PlayerPrefsBaseUrlKey,
+            ServerConfig.PlayerPrefsApiTokenKey,
         };
+
+        /// <summary>Longest secret the panel stores (the CV server's tokens are 43 characters).</summary>
+        public const int MaxSecretLength = 512;
 
         private readonly CompanionConfig _config;
         private readonly bool _isDevelopmentBuild;
@@ -130,6 +137,12 @@ namespace XRScan.Core
             if (server != null)
             {
                 rows.Add(EndpointRow(SettingId.CvServer, "Vision (CV) server", server.ResolveEndpoint(_isDevelopmentBuild, _devAllowlist)));
+                bool hasToken = server.HasApiToken;
+                rows.Add(new SettingRow(SettingId.CvToken, SettingKind.Secret, "Vision server token", hasToken ? "set" : NotSet,
+                    hasToken
+                        ? "Sent only to the vision server, with each scan."
+                        : "The vision server answers only with its API token (CV_SERVER_API_TOKEN on the server).",
+                    !hasToken));
             }
 
             rows.Add(new SettingRow(SettingId.DevCleartextHosts, SettingKind.Info, "Plain-HTTP hosts",
@@ -155,9 +168,51 @@ namespace XRScan.Core
                     return _config.voice != null ? _config.voice.ResolveSelfHostedBaseUrl(out _) : string.Empty;
                 case SettingId.CvServer:
                     return _config.server != null ? UrlOf(_config.server.ResolveEndpoint(_isDevelopmentBuild, _devAllowlist)) : string.Empty;
+                case SettingId.CvToken:
+                    return ConfigOverrides.GetOverride(ServerConfig.PlayerPrefsApiTokenKey) ?? string.Empty;
                 default:
                     return string.Empty;
             }
+        }
+
+        /// <summary>
+        /// Stores a secret typed in the panel (the vision server's API token) as a PlayerPrefs override. Blank text
+        /// removes it. The message never contains the secret.
+        /// </summary>
+        public bool TrySetSecret(SettingId id, string text, out string message)
+        {
+            if (id != SettingId.CvToken)
+            {
+                message = "Not a secret setting.";
+                return false;
+            }
+
+            string value = text == null ? string.Empty : text.Trim();
+            if (value.Length == 0)
+            {
+                ConfigOverrides.SetOverride(ServerConfig.PlayerPrefsApiTokenKey, null);
+                message = "Vision server token removed.";
+                return true;
+            }
+
+            if (value.Length > MaxSecretLength)
+            {
+                message = "That token is too long (at most " + MaxSecretLength + " characters).";
+                return false;
+            }
+
+            foreach (char c in value)
+            {
+                if (c <= ' ' || c > '~')
+                {
+                    message = "A token has no spaces or special characters; check what you typed.";
+                    return false;
+                }
+            }
+
+            ConfigOverrides.SetOverride(ServerConfig.PlayerPrefsApiTokenKey, value);
+            message = "Vision server token saved. It is sent only to the vision server.";
+            return true;
         }
 
         /// <summary>

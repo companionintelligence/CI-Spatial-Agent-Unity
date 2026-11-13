@@ -1072,7 +1072,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: XRScan.App::XRScan.App.ScanController
   raycaster: {fileID: 1480304006}
   pinManager: {fileID: 2140890331}
-  detectionPrompt: object
+  detectionPrompt: chair . table . sofa . bed . lamp . cup . mug . bottle . bowl . book . laptop . monitor . keyboard . phone . remote control . plant . vase . clock . picture frame . shelf . cabinet . door . window . box . bag . pillow .
   minScore: 0.3
 --- !u!4 &1811239539
 Transform:

@@ -8,6 +8,7 @@
         "XRScan.Mocks",
         "XRScan.Agent",
         "XRScan.Avatar",
+        "XRScan.App",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

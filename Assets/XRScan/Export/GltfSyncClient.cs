@@ -8,7 +8,7 @@ namespace XRScan.Export
 {
     /// <summary>
     /// Uploads an exported .glb + pin metadata to the server (/v1/gltf). Ported from CompanionScan;
-    /// base URL comes from ServerConfig (no hardcoding).
+    /// base URL and API token come from ServerConfig (no hardcoding).
     /// </summary>
     public class GltfSyncClient
     {
@@ -29,6 +29,7 @@ namespace XRScan.Export
                 form.Add(new MultipartFormDataSection("metadata", metadataJson));
 
             using var req = UnityWebRequest.Post(baseUrl.TrimEnd('/') + "/v1/gltf", form);
+            _config.ApplyAuthorization(req);
             req.timeout = Mathf.Max(5, _config.requestTimeoutSeconds);
 
             var op = req.SendWebRequest();
