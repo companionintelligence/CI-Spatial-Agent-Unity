@@ -13,7 +13,7 @@ Menu **`XRScan → Build`** (from `Assets/XRScan/Editor/XRScanBuilder.cs`):
 | Menu item | Output |
 |---|---|
 | **Quest 3 (Android APK)** | `Builds/CISpatialCompanion-Quest.apk` (define `XRSCAN_QUEST`, Meta OpenXR features) |
-| **Pico (Android APK)** | `Builds/CISpatialCompanion-Pico.apk` (define `XRSCAN_PICO`, PICO OpenXR features) |
+| **Pico (Android APK)** | `Builds/CISpatialCompanion-Pico.apk` (define `XRSCAN_PICO`, PICO OpenXR features). On Unity 6000.6 it stops with an error instead: see [Pico builds need Unity 6000.3 for now](#pico-builds-need-unity-60003-for-now) |
 | **Configure Android settings (no build)** | applies the player settings without building |
 | **Dump OpenXR features** | logs every Android OpenXR feature and whether it is enabled |
 
@@ -40,11 +40,17 @@ The same entry points run headlessly. `-xrscanBuildDir <dir>` (or the `XRSCAN_BU
 Unity.exe -batchmode -projectPath . -buildTarget Android -executeMethod XRScan.EditorTools.XRScanBuilder.BuildQuest -xrscanBuildDir D:\out
 ```
 
-(`BuildPico` for the Pico APK.) Add `-aab` to build an Android App Bundle instead (`CISpatialCompanion-Quest.aab` / `CISpatialCompanion-Pico.aab`, same signing and versionCode rules), for stores and tools that take app bundles; to install one on a headset, turn it into APKs with Google's `bundletool`. Do **not** pass `-quit`: changing the packages needs a script reload that `-quit` would cut short (the builder refuses to start and exits 1 if it sees it). The builder exits by itself after restoring the project files: 0 = built; 1 = the build failed, threw, or wrote no fresh APK. If the editor is killed mid-build, the next start of the project restores the files. CI builds the Quest APK this way on every pull request and checks its contents; see [CI.md](CI.md).
+(`BuildPico` for the Pico APK, which on Unity 6000.6 exits with code 1 without building; see below.) Add `-aab` to build an Android App Bundle instead (`CISpatialCompanion-Quest.aab` / `CISpatialCompanion-Pico.aab`, same signing and versionCode rules), for stores and tools that take app bundles; to install one on a headset, turn it into APKs with Google's `bundletool`. Do **not** pass `-quit`: changing the packages needs a script reload that `-quit` would cut short (the builder refuses to start and exits 1 if it sees it). The builder exits by itself after restoring the project files: 0 = built; 1 = the build failed, threw, or wrote no fresh APK. If the editor is killed mid-build, the next start of the project restores the files. CI builds the Quest APK this way on every pull request and checks its contents; see [CI.md](CI.md).
 
 ### The PICO SDK is added only for the Pico build
 
 The PICO OpenXR SDK (`com.unity.xr.openxr.picoxr`) is not in `Packages/manifest.json`. Its licence forbids reproducing its material without PICO's written permission, and Unity packs an installed package's `Resources`, plugins and settings objects into every player, so leaving it out of the project is what keeps it out of the Quest APK, the test runs and the Editor. **XRScan → Build → Pico** (`XRScanBuilder.BuildPico`) installs it from `XRScanBuildPackages.PicoPackageSource`, PICO's repository at the pinned commit `3aa3e62` (tag `release_1.4.0`, package 1.4.1), builds once the scripts have reloaded, and then restores the manifest, the lock file and the OpenXR settings, so the SDK leaves the project again (in batch mode at the next editor start, in the Editor straight away). Fetching the package needs access to GitHub. To build against another PICO release, change `PicoPackageSource` and update [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md). If you add the SDK to the manifest yourself, the Pico build uses that copy and the Quest build takes it out of the project for its build, as before.
+
+### Pico builds need Unity 6000.3 for now
+
+The project is on Unity 6000.6.9f1, and the pinned PICO OpenXR SDK (1.4.x) does not compile on Unity 6000.6: two of its Enterprise samples call `Object.GetInstanceID()`, which 6000.6 turns into a compile error (`CS0619`). PICO has not released a version that compiles on 6000.6, and its licence does not allow committing a patched copy. So on 6000.6 **XRScan → Build → Pico** (`XRScanBuilder.BuildPico`) stops before it changes anything and logs why; in batch mode the editor exits with code 1. The Quest build, the tests and CI are not affected, since none of them installs the PICO SDK.
+
+Until PICO ships a compatible SDK, build Pico APKs with Unity 6000.3.19f1 from the project as it was before its upgrade to 6000.6.9f1, i.e. the parent of the commit "Upgrade project to Unity 6000.6.9f1" (`37e1d47` on the branch that made the upgrade). There the Pico build adds the SDK as described above; it was verified to build a Pico APK whose manifest matches the earlier ones. When PICO releases an SDK that compiles on 6000.6, point `XRScanBuildPackages.PicoPackageSource` at it, raise `XRScanBuildPackages.PicoSdkFailsFrom` (the first editor version the pinned SDK fails on), update [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md), and check the Pico APK as described in [Verifying a build](#verifying-a-build).
 
 ## Release signing and version code
 

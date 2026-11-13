@@ -12,7 +12,7 @@ To run CI on a branch that has no pull request, open **Actions → CI → Run wo
 
 A newer push to the same branch or pull request queues behind a run that has already started instead of cancelling it, because cancelling a Unity job part-way can skip returning its licence activation.
 
-The Pico APK is not built in CI. `XRScanBuilder.BuildPico` would slot in as a second build job the same way.
+The Pico APK is not built in CI. `XRScanBuilder.BuildPico` would slot in as a second build job the same way once the PICO SDK compiles on the project's editor; on Unity 6000.6 it stops with exit code 1 (see [BUILD.md](BUILD.md#pico-builds-need-unity-60003-for-now)).
 
 ## Licence secrets
 

@@ -26,7 +26,9 @@ namespace XRScan.EditorTools
     /// <c>Assets/Resources</c> are moved aside. The PICO SDK licence forbids reproducing its material
     /// (code, controller and hand models, textures, shaders) without PICO's written permission.</item>
     /// <item><b>Pico:</b> the PICO SDK is added from <see cref="PicoPackageSource"/> for the build, and the
-    /// settings files its editor code generates during the build are deleted afterwards.</item>
+    /// settings files its editor code generates during the build are deleted afterwards. That SDK does not
+    /// compile on Unity 6000.6 or newer (<see cref="PicoSdkFailsFrom"/>), so there the Pico build stops with an
+    /// error before it changes anything.</item>
     /// </list>
     /// Adding or removing a package needs a script reload, so such a build runs in two steps: back up
     /// <c>Packages/manifest.json</c>, <c>Packages/packages-lock.json</c> and, when the PICO SDK is added or
@@ -48,6 +50,15 @@ namespace XRScan.EditorTools
         /// </summary>
         internal const string PicoPackageSource =
             "https://github.com/Pico-Developer/PICO-Unity-OpenXR-SDK.git#3aa3e62bff41df618529eeb60ff02c29a515dafe";
+
+        /// <summary>
+        /// First Unity version the PICO SDK at <see cref="PicoPackageSource"/> does not compile on. On 6000.6 two
+        /// of its Enterprise samples fail with CS0619, because <c>Object.GetInstanceID()</c> is obsolete as an
+        /// error there; PICO has no release that fixes this, and its licence does not allow committing a patched
+        /// copy. On this editor or a newer one a Pico build stops before it changes the project. When PICO ships
+        /// an SDK that compiles on the project's editor, point <see cref="PicoPackageSource"/> at it and raise this.
+        /// </summary>
+        internal static readonly Version PicoSdkFailsFrom = new Version(6000, 6);
 
         /// <summary>Packages that never ship in a player (edit-time tooling).</summary>
         internal static readonly string[] EditorOnlyPackages = { McpPackage };
@@ -133,6 +144,17 @@ namespace XRScan.EditorTools
         internal static string SourceOf(string packageName) =>
             packageName == PicoPackage ? PicoPackageSource : packageName;
 
+        /// <summary>
+        /// False when the PICO SDK at <see cref="PicoPackageSource"/> is known not to compile on the editor version
+        /// <paramref name="unityVersion"/> (e.g. <c>6000.6.9f1</c>), i.e. from <see cref="PicoSdkFailsFrom"/> on.
+        /// </summary>
+        internal static bool PinnedPicoSdkCompilesOn(string unityVersion)
+        {
+            var match = Regex.Match(unityVersion ?? string.Empty, @"^(\d+)\.(\d+)");
+            return !match.Success ||
+                   new Version(int.Parse(match.Groups[1].Value), int.Parse(match.Groups[2].Value)) < PicoSdkFailsFrom;
+        }
+
         /// <summary>True while an <see cref="XRScanBuilder"/> build that changed the package set is in progress.</summary>
         internal static bool BuildInProgress => File.Exists(StatePath);
 
@@ -164,6 +186,16 @@ namespace XRScan.EditorTools
                 return;
             }
             var add = PackagesToAddFor(pico).Where(p => !InManifest(manifest, p)).ToArray();
+            if (add.Contains(PicoPackage) && !PinnedPicoSdkCompilesOn(Application.unityVersion))
+            {
+                Fail(null, $"Cannot build the Pico APK with Unity {Application.unityVersion}. The Pico build installs the PICO " +
+                           $"OpenXR SDK ({PicoPackageSource}), which does not compile on Unity {PicoSdkFailsFrom.Major}." +
+                           $"{PicoSdkFailsFrom.Minor} or newer: CS0619, its Enterprise samples call Object.GetInstanceID(). PICO " +
+                           "has not released a version that does, and its licence does not allow a patched copy. Until it does, " +
+                           "build Pico APKs with Unity 6000.3.19f1 from the project as it was before the upgrade to 6000.6 " +
+                           "(docs/BUILD.md, \"Pico builds need Unity 6000.3 for now\"). Nothing in the project was changed.");
+                return;
+            }
             var stash = pico ? Array.Empty<string>() : PicoGeneratedAssets.Where(File.Exists).ToArray();
 
             if (remove.Length == 0 && add.Length == 0 && stash.Length == 0)
