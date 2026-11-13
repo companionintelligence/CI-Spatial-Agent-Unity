@@ -160,15 +160,15 @@ namespace XRScan.Settings
 
         private static void RestartCameraManagers()
         {
-            foreach (var manager in FindObjectsByType<ARCameraManager>(FindObjectsSortMode.None)) Restart(manager);
+            foreach (var manager in FindObjectsByType<ARCameraManager>()) Restart(manager);
         }
 
         private static void RestartSpatialManagers()
         {
-            foreach (var manager in FindObjectsByType<ARPlaneManager>(FindObjectsSortMode.None)) Restart(manager);
-            foreach (var manager in FindObjectsByType<ARMeshManager>(FindObjectsSortMode.None)) Restart(manager);
-            foreach (var manager in FindObjectsByType<ARRaycastManager>(FindObjectsSortMode.None)) Restart(manager);
-            foreach (var manager in FindObjectsByType<ARAnchorManager>(FindObjectsSortMode.None)) Restart(manager);
+            foreach (var manager in FindObjectsByType<ARPlaneManager>()) Restart(manager);
+            foreach (var manager in FindObjectsByType<ARMeshManager>()) Restart(manager);
+            foreach (var manager in FindObjectsByType<ARRaycastManager>()) Restart(manager);
+            foreach (var manager in FindObjectsByType<ARAnchorManager>()) Restart(manager);
         }
 
         /// <summary>Stops and restarts an AR manager's subsystem so it re-checks the permission it was missing.</summary>

@@ -215,7 +215,7 @@ namespace XRScan.EditorTools
         [MenuItem("XRScan/Scene/Android: OpenXR loader only", false, 42)]
         public static void EnsureAndroidOpenXROnly()
         {
-            if (!EditorBuildSettings.TryGetConfigObject(XRGeneralSettings.k_SettingsKey,
+            if (!EditorBuildSettings.TryGetConfigObject(XRGeneralSettings.settingsKey,
                     out XRGeneralSettingsPerBuildTarget perBuildTarget) || perBuildTarget == null)
             {
                 Debug.LogError("[MRSceneBuilder] XRGeneralSettingsPerBuildTarget config object not found.");
@@ -348,7 +348,7 @@ namespace XRScan.EditorTools
                 sb.AppendLine($"  Renderer {System.IO.Path.GetFileName(path)} hasArFeature={has}");
             }
 
-            if (EditorBuildSettings.TryGetConfigObject(XRGeneralSettings.k_SettingsKey,
+            if (EditorBuildSettings.TryGetConfigObject(XRGeneralSettings.settingsKey,
                     out XRGeneralSettingsPerBuildTarget pbt) && pbt != null)
             {
                 var android = pbt.SettingsForBuildTarget(BuildTargetGroup.Android);
