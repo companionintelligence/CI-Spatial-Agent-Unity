@@ -131,8 +131,8 @@ namespace XRScan.EditorTools
             PlayerSettings.stereoRenderingPath = StereoRenderingPath.Instancing;
             // OpenXR's Meta Quest validation requires GameActivity on Unity 6+. Nothing here depends on
             // the legacy activity: no custom manifest or Activity code, and the bundled .aar/.java
-            // plugins (PICO, ARCore permissions, Oculus) only use UnityPlayer.currentActivity or
-            // android.app.Activity, which GameActivity also provides.
+            // plugins (ARCore permissions; PICO's, only while a Pico build runs) only use
+            // UnityPlayer.currentActivity or android.app.Activity, which GameActivity also provides.
             PlayerSettings.Android.applicationEntry = AndroidApplicationEntry.GameActivity;
         }
 
