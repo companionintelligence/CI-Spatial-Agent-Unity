@@ -15,10 +15,12 @@ namespace XRScan.EditorTools
     /// Menu: <b>XRScan &gt; Build</b>. The two headsets share one codebase; what differs per APK is the
     /// define, the enabled OpenXR feature group and the vendor packages present while the APK is built
     /// (<see cref="XRScanBuildPackages"/>: the PICO SDK only for Pico, MCP for Unity never).
-    /// <para>The committed settings are the Quest state (define <c>XRSCAN_QUEST</c>, Meta features on,
-    /// PICO off). A Pico build flips the define and vendor features and leaves them modified until the
-    /// next Quest build — don't commit that state. Builds also leave editor side effects in tracked
-    /// files (docs/BUILD.md lists them), so check <c>git status</c> before committing.</para>
+    /// <para>The committed settings are the Quest state (define <c>XRSCAN_QUEST</c>, Meta features on; the
+    /// PICO SDK is not installed). A Pico build installs the PICO SDK and switches the define and vendor
+    /// features; afterwards it puts the OpenXR settings back with the package set, but the define stays
+    /// <c>XRSCAN_PICO</c> until the next Quest build — don't commit that state. Builds also leave editor
+    /// side effects in tracked files (docs/BUILD.md lists them), so check <c>git status</c> before
+    /// committing.</para>
     /// <para>In batch mode (<c>-executeMethod</c>, without <c>-quit</c>) the editor exits when the build
     /// ends: 0 = built, 1 = failed, threw, or wrote no fresh APK.</para>
     /// <para>Signing and versionCode come from the environment (<see cref="AndroidReleaseSettings"/>): the
@@ -363,6 +365,12 @@ namespace XRScan.EditorTools
         /// </summary>
         private static void ConfigureOpenXRFeatures(bool quest)
         {
+            // Bring the feature list in line with the installed packages first. The PICO SDK is installed only
+            // for a Pico build, so until this runs the settings do not list its features and the loop below
+            // would leave them off (the build would then package PICO's code without its OpenXR features).
+            // Without the SDK, this drops PICO's entries from the list, as OpenXR's own build step would.
+            UnityEditor.XR.OpenXR.Features.FeatureHelpers.RefreshFeatures(BuildTargetGroup.Android);
+
             var settings = UnityEngine.XR.OpenXR.OpenXRSettings.GetSettingsForBuildTargetGroup(BuildTargetGroup.Android);
             if (settings == null)
             {

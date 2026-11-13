@@ -152,22 +152,7 @@ MonoBehaviour:
   - {fileID: 8879283801735731765}
   - {fileID: 4958307443559187277}
   - {fileID: 6917756055353846543}
-  - {fileID: -492281428699188216}
-  - {fileID: 7469203755877828394}
-  - {fileID: 1943136010249424367}
-  - {fileID: 5428877392613077852}
-  - {fileID: -6876099252962475384}
   - {fileID: 1014593474057842288}
-  - {fileID: -498291485942042987}
-  - {fileID: 3465333985223548776}
-  - {fileID: -3796419829953309962}
-  - {fileID: 573948991564754551}
-  - {fileID: -5894384166690821772}
-  - {fileID: 3440736045517041960}
-  - {fileID: 2338412081629744274}
-  - {fileID: -9060787286728501715}
-  - {fileID: -6941047336214623003}
-  - {fileID: 5296723570483028862}
   - {fileID: 5301066814123712324}
   - {fileID: 7346097229903373243}
   customLoaderName: 
@@ -178,7 +163,7 @@ MonoBehaviour:
     m_List: 00000000
   m_depthSubmissionMode: 0
   m_spacewarpMotionVectorTextureFormat: 0
-  m_optimizeBufferDiscards: 0
+  m_optimizeBufferDiscards: 1
   m_symmetricProjection: 0
   m_optimizeMultiviewRenderRegions: 0
   m_multiviewRenderRegionsOptimizationMode: 0

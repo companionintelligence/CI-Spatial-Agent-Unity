@@ -15,29 +15,39 @@ namespace XRScan.EditorTools
     /// Per-vendor package selection for player builds. Unity packs every installed package's
     /// <c>Resources</c> folders, runtime assemblies, plugins and the settings objects they own into every
     /// player, whatever loader or feature is active, and nothing inside a read-only package can be
-    /// excluded piecemeal. So <see cref="XRScanBuilder"/> builds each APK from a project that does not
-    /// contain what the APK must not ship:
+    /// excluded piecemeal. So <see cref="XRScanBuilder"/> builds each APK from a project that contains only
+    /// what that APK may ship:
     /// <list type="bullet">
     /// <item><b>Every build:</b> MCP for Unity (<c>com.coplaydev.unity-mcp</c>) is removed. It is
     /// edit-time tooling.</item>
-    /// <item><b>Quest (any build other than Pico):</b> the PICO OpenXR SDK
-    /// (<c>com.unity.xr.openxr.picoxr</c>) is removed too, and the settings files PICO's editor code
-    /// generates under <c>Assets/Resources</c> are moved aside. The PICO SDK licence forbids reproducing
-    /// its material (code, controller and hand models, textures, shaders) without PICO's written
-    /// permission.</item>
+    /// <item><b>Quest (any build other than Pico):</b> the project as it is. The PICO OpenXR SDK
+    /// (<c>com.unity.xr.openxr.picoxr</c>) is not in <c>Packages/manifest.json</c>; if it was added there
+    /// anyway, it is removed for the build too, and the settings files PICO's editor code generates under
+    /// <c>Assets/Resources</c> are moved aside. The PICO SDK licence forbids reproducing its material
+    /// (code, controller and hand models, textures, shaders) without PICO's written permission.</item>
+    /// <item><b>Pico:</b> the PICO SDK is added from <see cref="PicoPackageSource"/> for the build, and the
+    /// settings files its editor code generates during the build are deleted afterwards.</item>
     /// </list>
-    /// Removing a package needs a script reload, so a build that has something to remove runs in two
-    /// steps: back up <c>Packages/manifest.json</c>, <c>Packages/packages-lock.json</c> and the OpenXR
-    /// settings to <c>Library/XRScanBuild</c>, remove the packages, and after the domain reload build
-    /// and put every file back. In batch mode the editor exits by itself when the build ends (0 = built),
-    /// so <c>-quit</c> must not be passed. An editor that dies mid-build restores the files the next
-    /// time it opens the project.
+    /// Adding or removing a package needs a script reload, so such a build runs in two steps: back up
+    /// <c>Packages/manifest.json</c>, <c>Packages/packages-lock.json</c> and, when the PICO SDK is added or
+    /// removed, the OpenXR settings to <c>Library/XRScanBuild</c>; change the packages; and after the domain
+    /// reload build and put every file back. In batch mode the editor exits by itself when the build ends
+    /// (0 = built), so <c>-quit</c> must not be passed. An editor that dies mid-build restores the files the
+    /// next time it opens the project.
     /// </summary>
     [InitializeOnLoad]
     internal static class XRScanBuildPackages
     {
         internal const string PicoPackage = "com.unity.xr.openxr.picoxr";
         internal const string McpPackage = "com.coplaydev.unity-mcp";
+
+        /// <summary>
+        /// Where a Pico build installs the PICO OpenXR SDK from: PICO's repository at the commit of its tag
+        /// <c>release_1.4.0</c> (package version 1.4.1). The SDK is not in <c>Packages/manifest.json</c>, so
+        /// the project, the tests and every Quest build run without it.
+        /// </summary>
+        internal const string PicoPackageSource =
+            "https://github.com/Pico-Developer/PICO-Unity-OpenXR-SDK.git#3aa3e62bff41df618529eeb60ff02c29a515dafe";
 
         /// <summary>Packages that never ship in a player (edit-time tooling).</summary>
         internal static readonly string[] EditorOnlyPackages = { McpPackage };
@@ -57,6 +67,7 @@ namespace XRScan.EditorTools
             "Assets/Resources/PicoSdkPCConfig.json",
         };
 
+        private const string ResourcesFolder = "Assets/Resources";
         private const string ManifestPath = "Packages/manifest.json";
         private const string LockPath = "Packages/packages-lock.json";
         private const string DefaultOpenXRSettingsPath = "Assets/XR/Settings/OpenXRPackageSettings.asset";
@@ -71,12 +82,17 @@ namespace XRScan.EditorTools
             public bool pico;
             public string session;
             public long startedUtcTicks;
+            public string[] addedPackages = Array.Empty<string>();
             public string[] removedPackages = Array.Empty<string>();
             public string[] backedUpFiles = Array.Empty<string>();
             public string[] stashedFiles = Array.Empty<string>();
+            /// <summary>PICO-generated files that did not exist when the Pico build started.</summary>
+            public string[] deleteIfCreated = Array.Empty<string>();
+            /// <summary>True when <see cref="ResourcesFolder"/> did not exist when the build started.</summary>
+            public bool resourcesFolderWasMissing;
         }
 
-        private static AddAndRemoveRequest s_RemoveRequest;
+        private static AddAndRemoveRequest s_PackageRequest;
         private static double s_NextPoll;
 
         static XRScanBuildPackages()
@@ -96,18 +112,26 @@ namespace XRScan.EditorTools
                                      "Packages/manifest.json, the lock file, the OpenXR settings and stashed assets.");
                     Restore(stale);
                     AssetDatabase.Refresh();
-                    if (stale.removedPackages.Length > 0) Client.Resolve();
+                    if (ChangesPackages(stale)) Client.Resolve();
                 };
                 return;
             }
 
-            // Same session: the packages were removed and scripts reloaded. Build once Unity is idle.
+            // Same session: the packages were changed and scripts reloaded. Build once Unity is idle.
             EditorApplication.update += PollAndContinue;
         }
 
         /// <summary>The packages a build for the given headset leaves out of the project.</summary>
         internal static string[] PackagesToRemoveFor(bool pico) =>
             pico ? EditorOnlyPackages.ToArray() : EditorOnlyPackages.Concat(PicoOnlyPackages).ToArray();
+
+        /// <summary>The packages a build for the given headset needs in the project.</summary>
+        internal static string[] PackagesToAddFor(bool pico) =>
+            pico ? PicoOnlyPackages.ToArray() : Array.Empty<string>();
+
+        /// <summary>What <c>Client.AddAndRemove</c> installs a package from.</summary>
+        internal static string SourceOf(string packageName) =>
+            packageName == PicoPackage ? PicoPackageSource : packageName;
 
         /// <summary>True while an <see cref="XRScanBuilder"/> build that changed the package set is in progress.</summary>
         internal static bool BuildInProgress => File.Exists(StatePath);
@@ -139,18 +163,20 @@ namespace XRScan.EditorTools
                            "of another package and cannot be removed for the build.");
                 return;
             }
+            var add = PackagesToAddFor(pico).Where(p => !InManifest(manifest, p)).ToArray();
             var stash = pico ? Array.Empty<string>() : PicoGeneratedAssets.Where(File.Exists).ToArray();
 
-            if (remove.Length == 0 && stash.Length == 0)
+            if (remove.Length == 0 && add.Length == 0 && stash.Length == 0)
             {
                 Finish(null, TryBuild(pico));
                 return;
             }
 
-            if (remove.Length > 0 && Application.isBatchMode && HasCommandLineFlag("-quit"))
+            bool changesPackages = remove.Length > 0 || add.Length > 0;
+            if (changesPackages && Application.isBatchMode && HasCommandLineFlag("-quit"))
             {
-                Fail(null, $"This build removes {string.Join(", ", remove)} from the project first, which needs a script " +
-                           "reload that -quit would cut short. Run without -quit: the builder exits by itself (0 = built).");
+                Fail(null, $"This build {Describe(add, remove)} first, which needs a script reload that -quit would cut short. " +
+                           "Run without -quit: the builder exits by itself (0 = built).");
                 return;
             }
 
@@ -159,16 +185,22 @@ namespace XRScan.EditorTools
                 pico = pico,
                 session = CurrentSession(),
                 startedUtcTicks = DateTime.UtcNow.Ticks,
+                addedPackages = add,
                 removedPackages = remove,
+                // The PICO SDK writes its settings files into Assets/Resources while it is installed. Delete
+                // the ones this build creates, since the SDK is gone again afterwards.
+                deleteIfCreated = add.Contains(PicoPackage) ? PicoGeneratedAssets.Where(f => !File.Exists(f)).ToArray() : Array.Empty<string>(),
+                resourcesFolderWasMissing = !Directory.Exists(ResourcesFolder),
             };
 
             Directory.CreateDirectory(WorkDir);
             var backups = new List<string> { ManifestPath };
             if (File.Exists(LockPath)) backups.Add(LockPath);
-            if (remove.Contains(PicoPackage))
+            if (remove.Contains(PicoPackage) || add.Contains(PicoPackage))
             {
-                // PICO's OpenXR feature objects live in this asset; while the package is absent they are
-                // missing-script objects, and the build re-saves the asset. Put the exact bytes back after.
+                // PICO's OpenXR feature objects live in this asset. A build that removes the SDK leaves them as
+                // missing-script objects, one that adds it creates them and the Pico build switches them on, and
+                // the build re-saves the asset either way. Put the exact bytes back after.
                 var openxr = OpenXRSettingsPath();
                 if (File.Exists(openxr)) backups.Add(openxr);
             }
@@ -188,54 +220,56 @@ namespace XRScan.EditorTools
             if (stash.Length > 0)
                 Debug.Log($"[XRScanBuildPackages] Moved {string.Join(", ", stash)} out of the project for this build.");
 
-            if (remove.Length == 0)
+            if (!changesPackages)
             {
                 AssetDatabase.Refresh();
                 Finish(state, TryBuild(pico));
                 return;
             }
 
-            Debug.Log($"[XRScanBuildPackages] Removing {string.Join(", ", remove)} for the {(pico ? "Pico" : "Quest")} build; " +
-                      "the build starts after the script reload and the packages are restored afterwards.");
-            s_RemoveRequest = Client.AddAndRemove(null, remove);
+            Debug.Log($"[XRScanBuildPackages] For the {(pico ? "Pico" : "Quest")} build: {Describe(add, remove)}; " +
+                      "the build starts after the script reload and the package set is restored afterwards.");
+            s_PackageRequest = Client.AddAndRemove(add.Length > 0 ? add.Select(SourceOf).ToArray() : null,
+                                                   remove.Length > 0 ? remove : null);
             s_NextPoll = 0;
-            EditorApplication.update += WatchRemoveRequest;
+            EditorApplication.update += WatchPackageRequest;
         }
 
-        /// <summary>Runs in the domain that asked UPM to remove the packages, until the script reload replaces it.</summary>
-        private static void WatchRemoveRequest()
+        /// <summary>Runs in the domain that asked UPM to change the packages, until the script reload replaces it.</summary>
+        private static void WatchPackageRequest()
         {
             if (EditorApplication.timeSinceStartup < s_NextPoll) return;
             s_NextPoll = EditorApplication.timeSinceStartup + 1.0;
 
             var state = LoadState();
-            if (state == null) { EditorApplication.update -= WatchRemoveRequest; return; }
+            if (state == null) { EditorApplication.update -= WatchPackageRequest; return; }
 
-            if (s_RemoveRequest != null && s_RemoveRequest.IsCompleted && s_RemoveRequest.Status == StatusCode.Failure)
+            if (s_PackageRequest != null && s_PackageRequest.IsCompleted && s_PackageRequest.Status == StatusCode.Failure)
             {
-                EditorApplication.update -= WatchRemoveRequest;
-                Fail(state, $"Removing {string.Join(", ", state.removedPackages)} failed: {s_RemoveRequest.Error?.message}");
+                EditorApplication.update -= WatchPackageRequest;
+                Fail(state, $"Changing the packages ({Describe(state.addedPackages, state.removedPackages)}) failed: {s_PackageRequest.Error?.message}");
                 return;
             }
 
-            bool settled = s_RemoveRequest != null && s_RemoveRequest.IsCompleted &&
+            bool settled = s_PackageRequest != null && s_PackageRequest.IsCompleted &&
                            !EditorApplication.isCompiling && !EditorApplication.isUpdating;
             if (settled && EditorUtility.scriptCompilationFailed)
             {
-                EditorApplication.update -= WatchRemoveRequest;
-                Fail(state, "Scripts no longer compile once " + string.Join(", ", state.removedPackages) +
-                            " is removed, so the build cannot start. See the compiler errors above.");
+                EditorApplication.update -= WatchPackageRequest;
+                Fail(state, "Scripts no longer compile once the packages are changed (" +
+                            Describe(state.addedPackages, state.removedPackages) +
+                            "), so the build cannot start. See the compiler errors above.");
                 return;
             }
 
             if (TimedOut(state))
             {
-                EditorApplication.update -= WatchRemoveRequest;
-                Fail(state, "Timed out waiting for the package removal and script reload.");
+                EditorApplication.update -= WatchPackageRequest;
+                Fail(state, "Timed out waiting for the package change and script reload.");
             }
         }
 
-        /// <summary>Runs after the script reload: builds once the removed packages are gone and Unity is idle.</summary>
+        /// <summary>Runs after the script reload: builds once the package set is in place and Unity is idle.</summary>
         private static void PollAndContinue()
         {
             if (EditorApplication.timeSinceStartup < s_NextPoll) return;
@@ -246,12 +280,15 @@ namespace XRScan.EditorTools
             if (state == null) { EditorApplication.update -= PollAndContinue; return; }
 
             var stillInstalled = state.removedPackages.Where(IsRegistered).ToArray();
-            if (stillInstalled.Length > 0)
+            var notInstalled = state.addedPackages.Where(p => !IsRegistered(p)).ToArray();
+            if (stillInstalled.Length > 0 || notInstalled.Length > 0)
             {
                 // A script reload for another reason can come before the one for the package change.
                 if (!TimedOut(state)) return;
                 EditorApplication.update -= PollAndContinue;
-                Fail(state, $"{string.Join(", ", stillInstalled)} still installed after the package removal.");
+                Fail(state, stillInstalled.Length > 0
+                    ? $"{string.Join(", ", stillInstalled)} still installed after the package change."
+                    : $"{string.Join(", ", notInstalled)} not installed after the package change.");
                 return;
             }
 
@@ -276,10 +313,11 @@ namespace XRScan.EditorTools
         {
             if (state != null)
             {
-                Restore(state);
+                var deleted = Restore(state);
                 Debug.Log("[XRScanBuildPackages] Restored " + string.Join(", ", state.backedUpFiles.Concat(
                               state.stashedFiles.Where(f => !f.EndsWith(".meta", StringComparison.Ordinal)))) +
-                          (state.removedPackages.Length > 0 ? $" ({string.Join(", ", state.removedPackages)} come back on the next package resolve)." : "."));
+                          (deleted.Count > 0 ? $"; deleted {string.Join(", ", deleted)}, which the build created" : "") +
+                          (ChangesPackages(state) ? " (the installed packages follow the restored manifest at the next package resolve)." : "."));
             }
 
             if (Application.isBatchMode)
@@ -291,12 +329,15 @@ namespace XRScan.EditorTools
             if (state != null)
             {
                 AssetDatabase.Refresh();
-                if (state.removedPackages.Length > 0) Client.Resolve();
+                if (ChangesPackages(state)) Client.Resolve();
             }
         }
 
-        /// <summary>Copies the backups back, returns stashed assets and forgets the pending build.</summary>
-        private static void Restore(PendingBuild state)
+        /// <summary>
+        /// Copies the backups back, returns stashed assets, deletes the PICO-generated files a Pico build
+        /// created and forgets the pending build. Returns the deleted paths.
+        /// </summary>
+        private static List<string> Restore(PendingBuild state)
         {
             foreach (var file in state.stashedFiles)
             {
@@ -313,8 +354,36 @@ namespace XRScan.EditorTools
                     AssetDatabase.ImportAsset(file, ImportAssetOptions.ForceUpdate);
             }
 
+            var deleted = new List<string>();
+            foreach (var file in state.deleteIfCreated)
+            {
+                if (!File.Exists(file)) continue;
+                File.Delete(file);
+                if (File.Exists(file + ".meta")) File.Delete(file + ".meta");
+                deleted.Add(file);
+            }
+            if (state.resourcesFolderWasMissing && deleted.Count > 0 && Directory.Exists(ResourcesFolder) &&
+                !Directory.EnumerateFileSystemEntries(ResourcesFolder).Any())
+            {
+                Directory.Delete(ResourcesFolder);
+                if (File.Exists(ResourcesFolder + ".meta")) File.Delete(ResourcesFolder + ".meta");
+                deleted.Add(ResourcesFolder);
+            }
+
             try { Directory.Delete(WorkDir, true); }
             catch (IOException e) { Debug.LogWarning($"[XRScanBuildPackages] Could not delete {WorkDir}: {e.Message}"); }
+            return deleted;
+        }
+
+        private static bool ChangesPackages(PendingBuild state) =>
+            state.addedPackages.Length > 0 || state.removedPackages.Length > 0;
+
+        private static string Describe(string[] add, string[] remove)
+        {
+            var parts = new List<string>();
+            if (add.Length > 0) parts.Add("adds " + string.Join(", ", add));
+            if (remove.Length > 0) parts.Add("removes " + string.Join(", ", remove));
+            return string.Join(" and ", parts);
         }
 
         private static bool TimedOut(PendingBuild state) =>

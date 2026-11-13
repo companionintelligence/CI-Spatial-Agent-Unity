@@ -81,7 +81,7 @@ The workflow passes no release keystore (see [Release signing](BUILD.md#release-
 
 ## Quest APK checks
 
-The build step runs the editor without `-quit` (game-ci's `manualExit: true`): `XRScanBuilder` takes the PICO SDK and MCP for Unity out of the project before the Quest build, which needs a script reload that `-quit` would cut short, and exits by itself once the build has ended and the project files are restored. It exits with code 1, failing the step, when the build fails, throws or writes no APK. The `Verify the APK` step then checks what was packaged and fails when any of these is not true:
+The build step runs the editor without `-quit` (game-ci's `manualExit: true`): `XRScanBuilder` takes MCP for Unity out of the project before the Quest build (the PICO SDK is not in it; see [BUILD.md](BUILD.md#the-pico-sdk-is-added-only-for-the-pico-build)), which needs a script reload that `-quit` would cut short, and exits by itself once the build has ended and the project files are restored. It exits with code 1, failing the step, when the build fails, throws or writes no APK. The `Verify the APK` step then checks what was packaged and fails when any of these is not true:
 
 - `Builds/CISpatialCompanion-Quest.apk` exists and is not empty.
 - `tools/apk/scan_apk.py --target quest` finds no PICO SDK, MCP for Unity, Ready Player Me or Visual Scripting content in any file of the APK, serialized assets included.

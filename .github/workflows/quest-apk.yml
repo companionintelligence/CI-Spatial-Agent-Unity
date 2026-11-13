@@ -135,9 +135,9 @@ jobs:
           # XRScanBuilder sets its own player settings and output path; skip game-ci's
           # git-based versioning (it would need full history and a clean tree).
           versioning: None
-          # Run the editor without -quit. The builder takes the PICO SDK and MCP for Unity out of
-          # the project before the Quest build, which needs a script reload that -quit would cut
-          # short (the builder refuses to start when it sees -quit). It exits by itself once the
+          # Run the editor without -quit. The builder takes MCP for Unity out of the project before
+          # the Quest build (the PICO SDK is not in it), which needs a script reload that -quit would
+          # cut short (the builder refuses to start when it sees -quit). It exits by itself once the
           # build has ended and the project files are restored: 0 = built, 1 = failed.
           manualExit: true
 

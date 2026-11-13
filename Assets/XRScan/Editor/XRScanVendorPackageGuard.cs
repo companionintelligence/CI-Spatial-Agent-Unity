@@ -15,9 +15,10 @@ namespace XRScan.EditorTools
     /// shaders, prefabs), the OpenXR feature objects it owns, or the settings files its editor code writes
     /// to <c>Assets/Resources</c>; Unity packs all of those into every player. The PICO SDK licence forbids
     /// reproducing that material without PICO's written permission, so a Quest APK must be built from a
-    /// project without the package: <b>XRScan &gt; Build &gt; Quest 3</b> does that
-    /// (<see cref="XRScanBuildPackages"/>). Builds made another way, e.g. from the Build Profiles window,
-    /// stop here instead of shipping PICO's material.
+    /// project without the package. <c>Packages/manifest.json</c> does not contain it: only a Pico build
+    /// installs it, for the length of the build, and <b>XRScan &gt; Build &gt; Quest 3</b> removes it if it
+    /// was added to the manifest anyway (<see cref="XRScanBuildPackages"/>). Builds made another way while
+    /// it is installed, e.g. from the Build Profiles window, stop here instead of shipping PICO's material.
     /// </summary>
     public class XRScanVendorPackageGuard : IPreprocessBuildWithReport
     {
