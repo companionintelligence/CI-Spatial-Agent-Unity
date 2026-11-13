@@ -1,6 +1,9 @@
 # CI entry point: EditMode + PlayMode tests, then the Meta Quest APK build.
 # Both stages are reusable workflows that can also be started by hand from the
 # Actions tab. Secrets, caching and artifacts are documented in docs/CI.md.
+#
+# Every APK built here is signed with Unity's debug key. Signed release builds
+# are made only by release.yml, and the signing secrets are never passed here.
 name: CI
 
 on:
@@ -35,12 +38,19 @@ jobs:
   tests:
     name: Unity tests
     uses: ./.github/workflows/unity-tests.yml
-    secrets: inherit
+    # Only the Unity licence secrets: the signing secrets must never reach a pull request or branch build.
+    secrets:
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+      UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
 
-  # Only builds once both test suites pass, and the test jobs run one after
-  # the other, so a run holds at most one Unity licence activation at a time.
+  # Only builds once both test suites pass, and the test jobs run one after the
+  # other, so a run holds at most one Unity licence activation at a time.
   quest-apk:
     name: Quest APK
     needs: tests
     uses: ./.github/workflows/quest-apk.yml
-    secrets: inherit
+    secrets:
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+      UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}

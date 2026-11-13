@@ -5,6 +5,9 @@
 # Called by ci.yml after the tests pass; can also be started by hand from the
 # Actions tab. See docs/CI.md.
 #
+# Every build here is signed with Unity's debug key. This workflow never sees the
+# release signing secrets: signed release builds are made only by release.yml.
+#
 # No workflow-level concurrency here on purpose: when called, this workflow would
 # share the caller's concurrency group and block itself. ci.yml sets it instead.
 name: Quest APK
@@ -170,6 +173,7 @@ jobs:
           manualExit: true
 
       - name: Save the Library cache
+        # Safe to cache: this job has no signing secrets, so the Library holds no password.
         if: steps.build.outcome == 'success' && steps.library.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

@@ -54,7 +54,7 @@ Until PICO ships a compatible SDK, build Pico APKs with Unity 6000.3.19f1 from t
 
 ## Release signing and version code
 
-`XRScanBuilder` never stores signing material in the project. It reads the release keystore from the environment of the editor process for each build (`AndroidReleaseSettings` in `Assets/XRScan/Settings/Editor`). These are the names game-ci's unity-builder sets in its build container, so a CI build can pass them on unchanged:
+`XRScanBuilder` never stores signing material in the project. It reads the release keystore from the environment of the editor process for each build (`AndroidReleaseSettings` in `Assets/XRScan/Settings/Editor`). These are the names game-ci's unity-builder sets in its build container, so local builds and the [Release workflow](CI.md#release-builds) read the same variables:
 
 | Variable | Value |
 |---|---|
@@ -63,12 +63,12 @@ Until PICO ships a compatible SDK, build Pico APKs with Unity 6000.3.19f1 from t
 | `ANDROID_KEYALIAS_NAME` | alias of the release key, `ci-spatial-companion` |
 | `ANDROID_KEYALIAS_PASS` | password of that key; in a PKCS12 keystore it is the keystore password |
 
-In CI, game-ci takes the keystore itself as `ANDROID_KEYSTORE_BASE64`, decodes it to a file and sets `ANDROID_KEYSTORE_NAME` to that file's name.
+CI has a fifth one, `ANDROID_KEYSTORE_BASE64`, the keystore itself, which game-ci decodes to a file before it sets `ANDROID_KEYSTORE_NAME` to that file's name.
 
 - **Signing.** When all four are set, Unity signs the APK or app bundle with that key itself: an APK with APK signature scheme v2, an app bundle with a JAR signature. Otherwise it signs with Unity's debug key, which is fine for sideloading but not for a store upload. If only some of the four are set, the build warns and uses the debug key.
 - **`-release`.** Add it to the command line of every store build. The builder then exits with code 1, before it changes anything in the project, when any of the four variables is missing or `ANDROID_KEYSTORE_NAME` is not a file, instead of falling back to the debug key.
 - **Old names.** Earlier versions read `KEYSTORE_PATH`, `KEYSTORE_PASS`, `KEY_ALIAS`, `KEY_PASS` and `VERSION_CODE`. They are no longer read, and the builder warns when one of them is set.
-- **The key.** One release key per app, kept outside every repository with its backups: a store app can only be updated with the key it was first signed with. It is a PKCS12 file holding an RSA 4096 key valid for 10950 days, for example `keytool -genkeypair -storetype PKCS12 -keyalg RSA -keysize 4096 -validity 10950 -alias ci-spatial-companion -keystore ci-spatial-companion-release.p12 -dname "CN=Companion Intelligence, O=LifeScope Inc."` with the JDK in `<editor>\Editor\Data\PlaybackEngines\AndroidPlayer\OpenJDK\bin` (keytool prompts for the password). Make the password long and random, at least 20 characters of letters and digits only: game-ci passes it through shell quoting, and Unity writes it into its Gradle script in single quotes. The same key signs the Meta Horizon builds and would be the Google Play upload key; Play App Signing keeps the app-signing key.
+- **The key.** One release key per app, kept outside every repository with its backups: a store app can only be updated with the key it was first signed with. It is a PKCS12 file holding an RSA 4096 key valid for 10950 days, for example `keytool -genkeypair -storetype PKCS12 -keyalg RSA -keysize 4096 -validity 10950 -alias ci-spatial-companion -keystore ci-spatial-companion-release.p12 -dname "CN=Companion Intelligence, O=LifeScope Inc."` with the JDK in `<editor>\Editor\Data\PlaybackEngines\AndroidPlayer\OpenJDK\bin` (keytool prompts for the password). Make the password long and random, letters and digits only: CI refuses anything shorter than 20 characters or with symbols ([CI.md](CI.md#the-release-environment)). The same key signs the Meta Horizon builds and would be the Google Play upload key; Play App Signing keeps the app-signing key.
 - **Keep the passwords off disk.** Set the variables only in the environment of the editor process, as below, never on a command line, in a file or as persistent user variables (Windows keeps those in the registry). The builder applies them for that build only and puts the previous Player Settings back afterwards, byte for byte, so no keystore path or alias stays in `ProjectSettings.asset`, and the passwords are never written there. While a release build runs the file does hold the keystore path and alias, so revert it if such a build is killed.
 - **Copies Unity makes.** Unity writes both passwords in plain text into the build records and the Gradle project it keeps under `Library/Bee`. Before Gradle runs, `XRScanGradleSigning` makes the generated launcher `build.gradle` read them from the environment instead of the literals Unity writes there, so Gradle does not compile them into its script cache under `GRADLE_USER_HOME`, outside the project. When a release-signed build ends, built or failed, the builder deletes every file under `Library/Bee` that still holds either password (Unity regenerates them on the next build) and logs their names. In test builds these were six or seven files: the build records `Player*-inputdata.json`, `Player*.dag`, `Player*.dag.payloads`, `tundra.log.json` and `artifacts/csharpactions/IntermediateFiles.txt_*.info`, and Unity's copy of the launcher's Gradle script under `artifacts/Android/Gradle/launcher`; afterwards a search of the whole project, Gradle's user home, the editor log and the user's temporary and Unity folders found no copy left. Passwords shorter than 8 characters are not searched for, and the Gradle daemon can keep a file there open; the builder names what it could not check. Delete `Library/Bee` after closing the editor when it reports such files, and after any release build that was killed.
 
@@ -86,7 +86,7 @@ $unity = Start-Process -Wait -PassThru '<editor>\Editor\Unity.exe' '-batchmode -
 Remove-Item Env:ANDROID_KEYSTORE_PASS, Env:ANDROID_KEYALIAS_PASS
 ```
 
-This builds `Builds\CISpatialCompanion-Quest.apk`, the Meta Horizon Store package. Add `-aab` to the arguments for `Builds\CISpatialCompanion-Quest.aab`, an app bundle of the same build with the same signing and version. Exit code 0 means built and signed; 1 means it failed, and `Logs\release-build.log` says why (search for `[XRScanBuilder]`). If Gradle failed, Unity's error text can include the editor's whole environment, passwords included, so delete that log once you have read it.
+This builds `Builds\CISpatialCompanion-Quest.apk`, the Meta Horizon Store package. Add `-aab` to the arguments for `Builds\CISpatialCompanion-Quest.aab`, an app bundle of the same build with the same signing and version. Exit code 0 means built and signed; 1 means it failed, and `Logs\release-build.log` says why (search for `[XRScanBuilder]`). If Gradle failed, Unity's error text can include the editor's whole environment, passwords included, so delete that log once you have read it. CI's [release build](CI.md#release-builds) runs the same entry point with the same flags.
 
 Check the signature before uploading anything, with the editor's JDK and Android SDK (`%BT%` as in [Verifying a build](#verifying-a-build)):
 
@@ -101,20 +101,20 @@ A store-ready APK reports `Verified using v2 scheme (APK Signature Scheme v2): t
 
 ### Version
 
-The version is set in one place: **Player Settings → Version** (`bundleVersion` in `ProjectSettings/ProjectSettings.asset`, now `0.1.0`). It is the APK's versionName, and the builder derives the versionCode from it: `MAJOR*1000000 + MINOR*1000 + PATCH`, so `0.1.0` gives 1000, `0.1.1` gives 1001 and `1.2.3` gives 1002003. The version is `MAJOR.MINOR.PATCH`, optionally followed by a `-suffix`, with MINOR and PATCH below 1000; one that does not fit fails the build. Player Settings → Bundle Version Code (`AndroidBundleVersionCode`) is not used: the builder sets the derived code for each build and puts the committed value back.
+The version is set in one place: **Player Settings → Version** (`bundleVersion` in `ProjectSettings/ProjectSettings.asset`, now `0.1.0`). It is the APK's versionName, and the builder derives the versionCode from it: `MAJOR*1000000 + MINOR*1000 + PATCH`, so `0.1.0` gives 1000, `0.1.1` gives 1001 and `1.2.3` gives 1002003. The version is `MAJOR.MINOR.PATCH`, optionally followed by a `-suffix`, with MINOR and PATCH below 1000; one that does not fit fails the build. Player Settings → Bundle Version Code (`AndroidBundleVersionCode`) is not used: the builder sets the derived code for each build and puts the committed value back. CI derives the same code and checks it in every package it builds.
 
 To release a new version:
 
 1. Raise **Player Settings → Version**: PATCH for fixes, MINOR for new features. Every store upload needs a higher versionCode than the one before it, a re-upload after a rejection included, so each upload gets a new version.
-2. Commit it, build the signed package from that commit as above and upload it. Tag the commit `v<version>`, for example `v0.1.1`.
-3. Every build of one commit has the same versionCode, so upload one package per version.
+2. Merge that change to `main`, tag the merge commit `v<version>` and push the tag, for example `git tag v0.1.1 <commit>` and `git push origin v0.1.1`. The [Release workflow](CI.md#release-builds) builds and signs the APK once a reviewer approves, and fails if the tag and the version differ or the commit is not on `main`.
+3. Every build of one commit has the same versionCode, so upload one package per version: the one from CI, or a local `-release` build of the same commit.
 
 ### Store builds
 
 There are no Unity Build Profiles (see [Build Profiles](#build-profiles)): `XRScanBuilder` applies the store settings in code.
 
 - **Meta Horizon Store:** `BuildQuest -release` builds `CISpatialCompanion-Quest.apk` with target SDK 34, which the Store requires exactly, signed with APK signature scheme v2 (the Store accepts v1 or v2). The first upload makes the release key the app's identity on the Store.
-- **Google Play:** not a target of this release. `-aab` builds an app bundle of the same Quest build, with the same signing and version, but that build relies on Meta-only OpenXR features and would match no device on Play; a Play release needs an Android XR build of its own.
+- **Google Play:** not a target of this release. `-aab` builds an app bundle of the same Quest build, with the same signing and version, locally or with **Actions → Release → Run workflow → aab**, but that build relies on Meta-only OpenXR features and would match no device on Play; a Play release needs an Android XR build of its own.
 
 ## What's preconfigured
 
