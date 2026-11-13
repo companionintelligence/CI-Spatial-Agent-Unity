@@ -9,7 +9,6 @@ EditorBuildSettings:
     path: Assets/XRScan/App/Scenes/XRScan_Main.unity
     guid: 1b073359cd3a9f840bd8de2de9a9cb65
   m_configObjects:
-    Unity.XR.Oculus.Settings: {fileID: 11400000, guid: ca608adfed679134f9012453960a36b7, type: 2}
     UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 4560306f2a2a35846b9c262a028358c6, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
     com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 73b36b6e2fe97ae4f8a132d237f6b3ae, type: 2}
