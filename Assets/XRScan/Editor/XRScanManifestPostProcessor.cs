@@ -21,6 +21,10 @@ namespace XRScan.EditorTools
     /// <c>tools:node="remove"</c> marker, which the manifest merger honours for
     /// dependency-contributed permissions. The matching PICO native libs are dropped separately by
     /// <see cref="XRScanNativeLibExcluder"/>.
+    ///
+    /// Then it applies <see cref="QuestManifestRules"/> (the values Meta checks at upload): installLocation auto,
+    /// supportedDevices quest3|quest3s on Quest builds, and no BLUETOOTH or MODIFY_AUDIO_SETTINGS. Those go into
+    /// the launcher module's manifest, which outranks every other manifest in the merge.
     /// </summary>
     public class XRScanManifestPostProcessor : IPostGenerateGradleAndroidProject
     {
@@ -47,7 +51,22 @@ namespace XRScan.EditorTools
             if (!XRScanBuilder.BuildingForPico())
                 RemovePermission(doc, manifest, "com.pvr.tobactivate.permission.AUTH_CHECK");
 
+            QuestManifestRules.ApplyToLibrary(doc);
             doc.Save(manifestPath);
+
+            // path is the unityLibrary module; the launcher module next to it holds the application manifest.
+            var launcherPath = Path.Combine(path, "..", "launcher", "src", "main", "AndroidManifest.xml");
+            if (!File.Exists(launcherPath))
+            {
+                UnityEngine.Debug.LogWarning("[XRScanManifest] No launcher manifest at " + launcherPath +
+                                             "; installLocation, supportedDevices and the permission removals are not applied.");
+                return;
+            }
+
+            var launcher = new XmlDocument();
+            launcher.Load(launcherPath);
+            QuestManifestRules.ApplyToLauncher(launcher, !XRScanBuilder.BuildingForPico());
+            launcher.Save(launcherPath);
         }
 
         private static void AddPermission(XmlDocument doc, XmlElement manifest, string name)
