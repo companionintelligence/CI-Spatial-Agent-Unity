@@ -83,7 +83,7 @@ Set the four variables in that process's environment from a password manager or 
 - **Scripting backend** IL2CPP · **Architecture** ARM64
 - **Graphics API** Vulkan (GLES removed)
 - **Min SDK** Android 12 / API 32 (required for XR CPU camera images)
-- **Target SDK** API 34. The Meta Horizon Store requires exactly 34 for apps created since March 2026, so the target is pinned instead of *Automatic* (which would pick the highest installed platform, 36 with this editor). The Pico APK uses the same value.
+- **Target SDK** API 34. The Meta Horizon Store requires exactly 34 for apps created since March 2026, so the target is pinned instead of *Automatic* (which would pick the highest installed platform; the 6000.6.9f1 editor ships the API 34, 36 and 37 platforms). The Pico APK uses the same value.
 - **Color space** Linear · **Stereo rendering** Single Pass Instanced
 
 From Player Settings: **App id** `com.companionintelligence.xrscan` and **Version** `0.1.0`. No keystore is configured there: signing and the versionCode come from the environment at build time (see [Release signing and version code](#release-signing-and-version-code)).

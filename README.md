@@ -19,13 +19,13 @@ An embodied mixed-reality companion for **Meta Quest 3** and **Pico** — a spat
 
 ## Status
 
-- **Unity 6000.3.19f1 (6.3 LTS)** · URP · OpenXR-first (Meta Quest + PICO feature groups)
+- **Unity 6000.6.9f1** · URP · OpenXR-first (Meta Quest + PICO feature groups; Pico APKs need Unity 6000.3 for now, see [docs/BUILD.md](docs/BUILD.md#pico-builds-need-unity-60003-for-now))
 - All assemblies compile green; **125 automated tests** (122 EditMode + 3 PlayMode), run headless by [CI](docs/CI.md) on every pull request
 - Phases 1–2 verified running in-Editor; Phases 3–6 implemented (on-device ML / device-only paths are scaffolded behind interfaces)
 
 ## Why the rebuild
 
-The previous prototype targeted a since-broken toolchain. The full Meta XR SDK, UnityGLTF, and NaughtyAttributes do **not** compile on Unity 6.4/6.5 (a hard `CS0619` on `Object.GetInstanceID()`), and those are non-LTS releases. This rebuild targets **Unity 6.3 LTS** (supported to Dec 2027, validated by every vendor SDK in the stack) and uses the **OpenXR** path — `com.unity.xr.meta-openxr` for Quest and the PICO OpenXR SDK for Pico — so a single codebase builds for both headsets. Each headset gets its own APK, because a build turns on only that vendor's OpenXR features (see [docs/BUILD.md](docs/BUILD.md)).
+The previous prototype targeted a since-broken toolchain. The full Meta XR SDK, UnityGLTF, and NaughtyAttributes do **not** compile on Unity 6.4/6.5 (a hard `CS0619` on `Object.GetInstanceID()`), and those are non-LTS releases. This rebuild targets **Unity 6.3 LTS** (supported to Dec 2027, validated by every vendor SDK in the stack) and uses the **OpenXR** path — `com.unity.xr.meta-openxr` for Quest and the PICO OpenXR SDK for Pico — so a single codebase builds for both headsets. Each headset gets its own APK, because a build turns on only that vendor's OpenXR features (see [docs/BUILD.md](docs/BUILD.md)). The project has since moved to **Unity 6000.6.9f1**. On 6000.6 the PICO OpenXR SDK runs into the same `CS0619` (two of its Enterprise samples call `Object.GetInstanceID()`), so the SDK is not part of the project: the Pico build installs it only for the build, and until PICO ships a fixed SDK, Pico APKs are built with 6000.3.19f1 from the project before the upgrade.
 
 
 ## Features
@@ -82,7 +82,7 @@ Endpoints and API keys are read from `ServerConfig` / `LlmConfig` / `VoiceConfig
 
 ## Getting started
 
-1. Open with **Unity 6000.3.19f1** (with Android Build Support). Packages resolve automatically (uLipSync and MCP for Unity are pulled via git at pinned commits; glTFast and the rest come from the Unity registry). The PICO OpenXR SDK is not part of the project; the Pico build fetches it at a pinned commit for the length of the build.
+1. Open with **Unity 6000.6.9f1** (with Android Build Support). Packages resolve automatically (uLipSync and MCP for Unity are pulled via git at pinned commits; glTFast and the rest come from the Unity registry). The PICO OpenXR SDK is not part of the project; the Pico build fetches it at a pinned commit for the length of the build.
 2. Open `Assets/XRScan/App/Scenes/XRScan_Dev.unity` and press **Play** — it runs entirely on mocks (mock camera → detector → pin → avatar looks + speaks; push-to-talk voice Q&A). No device or server required. `XRScan_Dev` is for the Editor only and is not in the build.
 3. `XRScan_Main`, the scene the APKs ship, runs on the real backends. No server is configured out of the box: set the LLM, speech and CV servers in the in-headset settings panel (menu button / F1), or through the `ServerConfig` / `LlmConfig` / `VoiceConfig` assets in `Assets/XRScan/Config`, PlayerPrefs or environment variables. Endpoints use https; plain http works only for allow-listed LAN hosts in development builds. Speech goes to a self-hosted server by default, and cloud speech needs an explicit opt-in.
 4. Build for Quest 3 / Pico with **XRScan → Build → Quest 3** or **Pico** (one APK per headset; see [docs/BUILD.md](docs/BUILD.md); on Unity 6000.6 the Pico build stops with an error, because the PICO SDK does not compile there yet). Each applies the Android settings (IL2CPP, ARM64, Vulkan, min SDK 32, target SDK 34), switches on that headset's OpenXR feature group and builds the APK from a project without the vendor packages it must not contain.
