@@ -23,9 +23,10 @@ namespace XRScan.EditorTools
     /// committing.</para>
     /// <para>In batch mode (<c>-executeMethod</c>, without <c>-quit</c>) the editor exits when the build
     /// ends: 0 = built, 1 = failed, threw, or wrote no fresh APK.</para>
-    /// <para>Signing and versionCode come from the environment (<see cref="AndroidReleaseSettings"/>): the
-    /// release keystore only when <c>KEYSTORE_PATH</c>, <c>KEYSTORE_PASS</c>, <c>KEY_ALIAS</c> and
-    /// <c>KEY_PASS</c> are set, else Unity's debug key; <c>-release</c> makes a build without them fail.
+    /// <para>Signing comes from the environment (<see cref="AndroidReleaseSettings"/>): the release keystore only
+    /// when <c>ANDROID_KEYSTORE_NAME</c>, <c>ANDROID_KEYSTORE_PASS</c>, <c>ANDROID_KEYALIAS_NAME</c> and
+    /// <c>ANDROID_KEYALIAS_PASS</c> are set, else Unity's debug key; <c>-release</c> makes a build without them
+    /// fail. The versionName is Player Settings → Version and the versionCode is derived from it.
     /// <c>-aab</c> builds an Android App Bundle instead of an APK.</para>
     /// </summary>
     public static class XRScanBuilder
@@ -172,7 +173,46 @@ namespace XRScan.EditorTools
             {
                 EditorUserBuildSettings.buildAppBundle = previousAppBundle;
                 restoreReleaseSettings();
+                if (signing != null) RemoveSigningValuesFromLibrary(signing);
             }
+        }
+
+        /// <summary>
+        /// True while <see cref="BuildNow"/> builds with the release keystore from the environment. Tells
+        /// <see cref="XRScanGradleSigning"/> to make the generated Gradle script read the passwords from the
+        /// environment as well.
+        /// </summary>
+        internal static bool SigningFromEnvironment { get; private set; }
+
+        /// <summary>
+        /// Unity copies the keystore and key passwords of a release-signed build into files it keeps under
+        /// <c>Library/Bee</c>: the generated Gradle project and the build pipeline's records of the build. Deletes
+        /// every file there that holds one of them (Unity regenerates them on the next build), so the passwords do
+        /// not stay on disk, and do not reach a Library cache. Logs file names only, never the values.
+        /// </summary>
+        private static void RemoveSigningValuesFromLibrary(AndroidReleaseSettings.Signing signing)
+        {
+            var bee = Path.Combine(Directory.GetCurrentDirectory(), "Library", "Bee");
+            if (signing.KeystorePass.Length < AndroidReleaseSettings.MinSearchedSecretLength ||
+                signing.KeyPass.Length < AndroidReleaseSettings.MinSearchedSecretLength)
+            {
+                Debug.LogWarning($"[XRScanBuilder] A signing password is shorter than {AndroidReleaseSettings.MinSearchedSecretLength} " +
+                                 "characters, so Library/Bee is not searched for it. Delete Library/Bee by hand after this build: " +
+                                 "Unity keeps copies of the passwords there.");
+            }
+
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            var deleted = AndroidReleaseSettings.DeleteFilesContaining(
+                bee, new[] { signing.KeystorePass, signing.KeyPass }, out var unreadable, out var undeleted);
+            Debug.Log($"[XRScanBuilder] Searched Library/Bee for the signing passwords in {timer.Elapsed.TotalSeconds:F1} s: " +
+                      (deleted.Count > 0 ? $"deleted {deleted.Count} file(s) that held one ({string.Join(", ", deleted)})." : "none found."));
+            if (undeleted.Count > 0)
+                Debug.LogWarning($"[XRScanBuilder] {undeleted.Count} file(s) under Library/Bee hold a signing password but could not be " +
+                                 $"deleted: {string.Join(", ", undeleted)}. Delete them once the editor has exited.");
+            if (unreadable.Count > 0)
+                Debug.LogWarning($"[XRScanBuilder] {unreadable.Count} file(s) under Library/Bee could not be read, so they were not " +
+                                 $"checked for the signing passwords: {string.Join(", ", unreadable.Take(10))}" +
+                                 (unreadable.Count > 10 ? ", ..." : "") + ". Delete Library/Bee once the editor has exited to be sure.");
         }
 
         /// <summary>
@@ -227,15 +267,18 @@ namespace XRScan.EditorTools
         }
 
         /// <summary>
-        /// Resolves the build's versionCode and release signing from the environment and logs why a build
-        /// cannot go ahead: an unusable version, <c>-release</c> without all four signing variables, or a
-        /// <c>KEYSTORE_PATH</c> that is not a file. Never logs the values themselves.
+        /// Derives the build's versionCode from Player Settings → Version, reads the release signing from the
+        /// environment, and logs why a build cannot go ahead: an unusable version, <c>-release</c> without all
+        /// four signing variables, or an <c>ANDROID_KEYSTORE_NAME</c> that is not a file. Never logs the values
+        /// themselves.
         /// </summary>
         private static bool CheckReleaseSettings(out int versionCode, out AndroidReleaseSettings.Signing signing)
         {
             signing = null;
-            if (!AndroidReleaseSettings.TryGetVersionCode(PlayerSettings.bundleVersion, Environment.GetEnvironmentVariable,
-                                                          out versionCode, out var versionError))
+            foreach (var warning in AndroidReleaseSettings.RetiredVariableWarnings(Environment.GetEnvironmentVariable))
+                Debug.LogWarning("[XRScanBuilder] " + warning);
+            if (!AndroidReleaseSettings.TryVersionCodeFromBundleVersion(PlayerSettings.bundleVersion, out versionCode,
+                                                                        out var versionError))
             {
                 Debug.LogError("[XRScanBuilder] " + versionError);
                 return false;
@@ -260,7 +303,8 @@ namespace XRScan.EditorTools
 
             if (!File.Exists(signing.KeystorePath))
             {
-                Debug.LogError($"[XRScanBuilder] {AndroidReleaseSettings.KeystorePathVariable} does not point to a file.");
+                Debug.LogError($"[XRScanBuilder] {AndroidReleaseSettings.KeystorePathVariable} does not point to a file " +
+                               "(a relative path is resolved against the project folder).");
                 signing = null;
                 return false;
             }
@@ -270,8 +314,9 @@ namespace XRScan.EditorTools
         /// <summary>
         /// Applies the versionCode and signing for this build and returns the action that puts the previous
         /// Player Settings back, so neither the keystore path and alias nor the build's versionCode end up in
-        /// ProjectSettings.asset. The passwords only ever live in memory. A debug-signed build leaves the
-        /// keystore settings alone.
+        /// ProjectSettings.asset. The passwords are never saved there; the copies Unity makes under Library are
+        /// removed by <see cref="RemoveSigningValuesFromLibrary"/>. A debug-signed build leaves the keystore
+        /// settings alone.
         /// </summary>
         private static Action ApplyReleaseSettings(int versionCode, AndroidReleaseSettings.Signing signing)
         {
@@ -281,18 +326,21 @@ namespace XRScan.EditorTools
 
             PlayerSettings.Android.bundleVersionCode = versionCode;
             PlayerSettings.Android.useCustomKeystore = signing != null;
+            SigningFromEnvironment = signing != null;
             if (signing != null)
             {
                 restoreKeystore = UseKeystore(signing);
-                Debug.Log($"[XRScanBuilder] Signing with the {signing}; versionCode {versionCode}.");
+                Debug.Log($"[XRScanBuilder] Signing with the {signing}; version {PlayerSettings.bundleVersion}, versionCode {versionCode}.");
             }
             else
             {
-                Debug.Log($"[XRScanBuilder] No release keystore in the environment: signing with Unity's debug key; versionCode {versionCode}.");
+                Debug.Log($"[XRScanBuilder] No release keystore in the environment: signing with Unity's debug key; " +
+                          $"version {PlayerSettings.bundleVersion}, versionCode {versionCode}.");
             }
 
             return () =>
             {
+                SigningFromEnvironment = false;
                 restoreKeystore();
                 PlayerSettings.Android.useCustomKeystore = previousUseCustomKeystore;
                 PlayerSettings.Android.bundleVersionCode = previousVersionCode;
