@@ -17,6 +17,9 @@ namespace XRScan.Settings
     /// <b>B / Y</b> (Esc) closes or cancels. Endpoint fields open the system keyboard on the headset, or take text
     /// from a physical keyboard. The panel is built at runtime (world-space uGUI), so the scene only needs this
     /// component. It opens by itself at start-up while the LLM or speech server is not configured yet.</para>
+    /// <para>It also carries the AI disclosure (<see cref="AiDisclosure"/>): a notice at first launch, before
+    /// anything else and whatever the server settings are, closed with A / Enter, and the same line at the top of
+    /// the panel whenever it is open.</para>
     /// </summary>
     public class CompanionSettingsPanel : MonoBehaviour
     {
@@ -75,11 +78,17 @@ namespace XRScan.Settings
         private Font _font;
         private RectTransform _panel;
         private RectTransform _toast;
+        private RectTransform _aiNotice;
         private Text _body;
         private Text _footer;
         private Text _toastText;
+        private Text _aiNoticeText;
+        private bool _aiNoticeOpen;
 
         public bool IsOpen => _open;
+
+        /// <summary>True while the first-launch AI notice is shown.</summary>
+        public bool IsAiNoticeOpen => _aiNoticeOpen;
 
         /// <summary>Code-side wiring (the scene normally sets these).</summary>
         public void Configure(CompanionConfig companionConfig, RuntimePermissions runtimePermissions)
@@ -151,10 +160,18 @@ namespace XRScan.Settings
             }
 
             if (_model == null) _model = new CompanionSettingsModel(config);
-            if (!config.openSettingsWhenUnconfigured) yield break;
 
-            // Give head tracking a moment so the panel appears in front of the user.
+            // Give head tracking a moment so the notice and the panel appear in front of the user.
             yield return new WaitForSecondsRealtime(autoOpenDelaySeconds);
+
+            // The AI notice comes first and does not look at the server settings.
+            if (AiDisclosure.NoticeNeeded)
+            {
+                ShowAiNotice();
+                while (_aiNoticeOpen) yield return null;
+            }
+
+            if (!config.openSettingsWhenUnconfigured) yield break;
             if (!_open && config.NeedsSetup())
             {
                 Open();
@@ -164,18 +181,12 @@ namespace XRScan.Settings
 
         public void Open()
         {
-            if (_model == null) return;
+            if (_model == null || _aiNoticeOpen) return;
             EnsureUi();
             _open = true;
             _panel.gameObject.SetActive(true);
             PlaceInFront(_panel, distance, -0.05f);
-
-            foreach (var behaviour in disableWhileOpen)
-            {
-                if (behaviour == null || _suspended.ContainsKey(behaviour)) continue;
-                _suspended[behaviour] = behaviour.enabled;
-                behaviour.enabled = false;
-            }
+            SuspendInput();
             Refresh();
         }
 
@@ -185,7 +196,44 @@ namespace XRScan.Settings
             _model?.CancelPending();
             _open = false;
             if (_panel != null) _panel.gameObject.SetActive(false);
+            ResumeInput();
+        }
 
+        /// <summary>Shows the AI notice in front of the user until A / Enter closes it; scanning and talking wait.</summary>
+        public void ShowAiNotice()
+        {
+            if (_open) Close();
+            EnsureUi();
+            _aiNoticeText.text = "<b>" + Clean(AiDisclosure.Line) + "</b>\n\n<size=22><color=#9aa4b2>A / Enter: OK</color></size>";
+            _aiNotice.gameObject.SetActive(true);
+            PlaceInFront(_aiNotice, distance, -0.05f);
+            _aiNoticeOpen = true;
+            SuspendInput();
+        }
+
+        /// <summary>Closes the AI notice and records that the user has seen it, so it shows only once.</summary>
+        public void AcknowledgeAiNotice()
+        {
+            if (!_aiNoticeOpen) return;
+            AiDisclosure.Acknowledge();
+            _aiNoticeOpen = false;
+            if (_aiNotice != null) _aiNotice.gameObject.SetActive(false);
+            ResumeInput();
+        }
+
+        private void SuspendInput()
+        {
+            foreach (var behaviour in disableWhileOpen)
+            {
+                if (behaviour == null || _suspended.ContainsKey(behaviour)) continue;
+                _suspended[behaviour] = behaviour.enabled;
+                behaviour.enabled = false;
+            }
+        }
+
+        private void ResumeInput()
+        {
+            if (_open || _aiNoticeOpen) return;
             foreach (var pair in _suspended)
             {
                 if (pair.Key != null) pair.Key.enabled = pair.Value;
@@ -215,7 +263,17 @@ namespace XRScan.Settings
         {
             if (_model == null) return;
 
-            if (_editing) UpdateEditing();
+            if (_aiNoticeOpen)
+            {
+                var keys = Keyboard.current;
+                if (_submit.WasPressedThisFrame() ||
+                    (keys != null && (keys.enterKey.wasPressedThisFrame || keys.numpadEnterKey.wasPressedThisFrame)))
+                {
+                    AcknowledgeAiNotice();
+                }
+                else FollowHead(_aiNotice, distance, -0.05f);
+            }
+            else if (_editing) UpdateEditing();
             else if (_toggle.WasPressedThisFrame())
             {
                 if (_open) Close();
@@ -509,7 +567,8 @@ namespace XRScan.Settings
             var sb = new StringBuilder(2048);
             sb.Append("<b>Companion settings</b>   <size=20><color=#9aa4b2>")
               .Append(_model.IsDevelopmentBuild ? "development build" : "release build")
-              .Append(" - changes are saved on this headset</color></size>\n\n");
+              .Append(" - changes are saved on this headset</color></size>\n")
+              .Append("<size=24><color=#c8d0da>").Append(Clean(AiDisclosure.Line)).Append("</color></size>\n\n");
 
             for (int i = 0; i < _rows.Count; i++)
             {
@@ -564,7 +623,7 @@ namespace XRScan.Settings
             if (_panel != null) return;
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-            _panel = CreateCanvas("SettingsPanelCanvas", new Vector2(1100f, 920f));
+            _panel = CreateCanvas("SettingsPanelCanvas", new Vector2(1100f, 1040f));
             _body = CreateText(_panel, "Body", 28, TextAnchor.UpperLeft, new Vector2(0f, 0.2f), Vector2.one, 36f);
             _footer = CreateText(_panel, "Footer", 24, TextAnchor.LowerLeft, Vector2.zero, new Vector2(1f, 0.2f), 36f);
             _panel.gameObject.SetActive(false);
@@ -572,6 +631,10 @@ namespace XRScan.Settings
             _toast = CreateCanvas("SettingsNoticeCanvas", new Vector2(1100f, 160f));
             _toastText = CreateText(_toast, "Notice", 26, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, 24f);
             _toast.gameObject.SetActive(false);
+
+            _aiNotice = CreateCanvas("AiNoticeCanvas", new Vector2(1000f, 320f));
+            _aiNoticeText = CreateText(_aiNotice, "Notice", 32, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, 48f);
+            _aiNotice.gameObject.SetActive(false);
         }
 
         private RectTransform CreateCanvas(string objectName, Vector2 size)

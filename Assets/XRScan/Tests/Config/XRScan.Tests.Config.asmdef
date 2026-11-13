@@ -6,6 +6,7 @@
         "XRScan.Settings",
         "XRScan.Settings.Editor",
         "XRScan.Mocks",
+        "UnityEngine.UI",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
