@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33326f2f38a9be748b5b9eb8a49dad77, type: 3}
+  m_Name: VoiceConfig
+  m_EditorClassIdentifier: XRScan.Core::XRScan.Core.VoiceConfig
+  provider: 0
+  cloudOptIn: 0
+  selfHostedBaseUrl: 
+  sttPath: /v1/audio/transcriptions
+  ttsPath: /v1/audio/speech
+  selfHostedRequiresToken: 0
+  cloudSttEndpoint: https://api.openai.com/v1/audio/transcriptions
+  cloudTtsEndpoint: https://api.openai.com/v1/audio/speech
+  sttModel: whisper-1
+  ttsModel: tts-1
+  ttsVoice: alloy
+  ttsFormat: mp3
+  sampleRate: 16000
+  maxRecordingLength: 10
+  voiceThreshold: 0.01
+  requestTimeoutSeconds: 30

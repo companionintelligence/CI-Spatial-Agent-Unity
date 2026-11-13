@@ -1,0 +1,20 @@
+{
+    "name": "XRScan.Settings",
+    "rootNamespace": "XRScan.Settings",
+    "references": [
+        "XRScan.Core",
+        "XRScan.Platform",
+        "Unity.InputSystem",
+        "UnityEngine.UI",
+        "Unity.XR.ARFoundation"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,202 @@
+# EditMode and PlayMode tests, run headless in the Unity editor version named in
+# ProjectSettings/ProjectVersion.txt. Called by ci.yml; can also be started by
+# hand from the Actions tab. See docs/CI.md.
+#
+# No workflow-level concurrency here on purpose: when called, this workflow would
+# share the caller's concurrency group and block itself. ci.yml sets it instead.
+name: Unity tests
+
+on:
+  workflow_call:
+    secrets:
+      UNITY_LICENSE:
+        description: Contents of a Unity Personal licence file (Unity_lic.ulf). Leave unset when UNITY_SERIAL is used.
+        required: false
+      UNITY_SERIAL:
+        description: Unity Plus/Pro serial key. Leave unset when UNITY_LICENSE is used.
+        required: false
+      UNITY_EMAIL:
+        description: E-mail address of the Unity ID that owns the licence.
+        required: false
+      UNITY_PASSWORD:
+        description: Password of the Unity ID that owns the licence.
+        required: false
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      unity-version: ${{ steps.unity.outputs.version }}
+      licence-ok: ${{ steps.licence.outputs.available }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read the Unity version from ProjectSettings/ProjectVersion.txt
+        id: unity
+        run: |
+          version="$(sed -n 's/^m_EditorVersion:[[:space:]]*//p' ProjectSettings/ProjectVersion.txt | tr -d '\r' | head -n 1)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+[abfp][0-9]+$ ]]; then
+            echo "::error file=ProjectSettings/ProjectVersion.txt::Could not read m_EditorVersion (got '${version}')."
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Unity editor \`${version}\` (from ProjectSettings/ProjectVersion.txt)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the Unity licence secrets
+        id: licence
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          # Fork and Dependabot pull requests never receive repository secrets.
+          NO_SECRETS_EXPECTED: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) || github.actor == 'dependabot[bot]' }}
+        run: |
+          missing=()
+          [[ -n "$UNITY_EMAIL" ]] || missing+=("UNITY_EMAIL")
+          [[ -n "$UNITY_PASSWORD" ]] || missing+=("UNITY_PASSWORD")
+          [[ -n "$UNITY_LICENSE" || -n "$UNITY_SERIAL" ]] || missing+=("UNITY_LICENSE or UNITY_SERIAL")
+          if (( ${#missing[@]} == 0 )); then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "available=false" >> "$GITHUB_OUTPUT"
+          if [[ "$NO_SECRETS_EXPECTED" == "true" ]]; then
+            echo "::notice title=Unity jobs skipped::Secrets are not passed to fork or Dependabot pull requests, so the Unity jobs are skipped. A maintainer can run the workflow from a branch of this repository."
+            exit 0
+          fi
+          list="$(printf '%s; ' "${missing[@]}")"
+          echo "::error title=Unity licence secrets missing::Add these repository secrets: ${list%; }. See docs/CI.md."
+          exit 1
+
+  test:
+    name: ${{ matrix.label }} tests
+    needs: setup
+    if: needs.setup.outputs.licence-ok == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: editmode
+            label: EditMode
+          - mode: playmode
+            label: PlayMode
+    env:
+      UNITY_VERSION: ${{ needs.setup.outputs.unity-version }}
+      RESULTS_DIR: test-results/${{ matrix.mode }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Free disk space for the Unity editor image
+        # The unityci/editor images are several GB; drop preinstalled SDKs this job never uses.
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force > /dev/null
+          df -h /
+
+      - name: Restore the Library cache
+        id: library
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Library
+          key: Library-${{ runner.os }}-tests-${{ env.UNITY_VERSION }}-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-${{ runner.os }}-tests-${{ env.UNITY_VERSION }}-
+
+      - name: Run ${{ matrix.label }} tests
+        id: tests
+        uses: game-ci/unity-test-runner@fa6ced25861c16ef56187828c43f76d00df43a23 # v4.3.2
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: ${{ env.UNITY_VERSION }}
+          testMode: ${{ matrix.mode }}
+          artifactsPath: ${{ env.RESULTS_DIR }}
+
+      - name: Save the Library cache
+        # Both legs import the same Library, so only the EditMode leg saves it.
+        if: steps.tests.outcome == 'success' && matrix.mode == 'editmode' && steps.library.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Library
+          key: ${{ steps.library.outputs.cache-primary-key }}
+
+      - name: Summarise ${{ matrix.label }} results
+        # Also fails the job when no tests ran (e.g. a test assembly stopped compiling).
+        if: ${{ !cancelled() }}
+        env:
+          LABEL: ${{ matrix.label }}
+          RESULTS_XML: ${{ env.RESULTS_DIR }}/${{ matrix.mode }}-results.xml
+        run: |
+          python3 -I - <<'PY'
+          import os
+          import sys
+          import xml.etree.ElementTree as ET
+
+          label = os.environ["LABEL"]
+          path = os.environ["RESULTS_XML"]
+
+
+          def escape(text):
+              return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write(f"### {label} tests\n\n")
+              if not os.path.isfile(path):
+                  summary.write("No results file was produced; see the editor log in the test-results artifact.\n")
+                  print(f"::error::{label}: {path} was not produced, so the test run did not complete.")
+                  sys.exit(1)
+              root = ET.parse(path).getroot()
+              run = root if root.tag == "test-run" else root.find(".//test-run")
+              if run is None:
+                  print(f"::error::{label}: {path} is not an NUnit 3 results file.")
+                  sys.exit(1)
+              keys = ("total", "passed", "failed", "skipped", "inconclusive")
+              counts = {key: int(run.get(key, "0")) for key in keys}
+              summary.write("| " + " | ".join(key.capitalize() for key in keys) + " |\n")
+              summary.write("|" + "---|" * len(keys) + "\n")
+              summary.write("| " + " | ".join(str(counts[key]) for key in keys) + " |\n")
+              failed = [case for case in run.iter("test-case") if case.get("result") == "Failed"]
+              for case in failed[:50]:
+                  lines = (case.findtext("failure/message") or "").strip().splitlines()
+                  reason = lines[0] if lines else "failed"
+                  name = case.get("fullname") or case.get("name") or "?"
+                  summary.write(f"\n- `{name}`: {reason}")
+                  print(f"::error title={label} test failed::{escape(name + ': ' + reason)}")
+              summary.write("\n")
+              if counts["total"] == 0:
+                  print(f"::error::{label}: no tests ran. Check that the test assembly compiled and is part of the run.")
+                  sys.exit(1)
+          PY
+
+      - name: Upload ${{ matrix.label }} results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results-${{ matrix.mode }}
+          path: ${{ env.RESULTS_DIR }}
+          if-no-files-found: warn
+          retention-days: 14

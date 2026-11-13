@@ -1,0 +1,46 @@
+# CI entry point: EditMode + PlayMode tests, then the Meta Quest APK build.
+# Both stages are reusable workflows that can also be started by hand from the
+# Actions tab. Secrets, caching and artifacts are documented in docs/CI.md.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'static/**'
+      - 'LICENSE*'
+      - '.vscode/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'static/**'
+      - 'LICENSE*'
+      - '.vscode/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One pipeline per branch or PR. A newer push replaces a run that is still
+# queued, but never cancels one that has started: cancelling a Unity job
+# mid-run can skip returning its licence activation.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    name: Unity tests
+    uses: ./.github/workflows/unity-tests.yml
+    secrets: inherit
+
+  # Only builds once both test suites pass, so at most two Unity licence
+  # activations are in use at the same time.
+  quest-apk:
+    name: Quest APK
+    needs: tests
+    uses: ./.github/workflows/quest-apk.yml
+    secrets: inherit

@@ -5,7 +5,7 @@ namespace XRScan.Avatar
     /// <summary>
     /// Drives a mouth-open blendshape from the live audio amplitude of an AudioSource, giving a
     /// basic lip-flap while the avatar speaks. This is the slice-level placeholder; the full
-    /// uLipSync viseme mapping (Ready Player Me Oculus visemes) replaces it in a later phase.
+    /// uLipSync viseme mapping (<see cref="AvatarLipSync"/>, Oculus-style visemes) supersedes it.
     /// </summary>
     public class VisemeController : MonoBehaviour
     {

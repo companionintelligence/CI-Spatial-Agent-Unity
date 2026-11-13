@@ -25,15 +25,16 @@ namespace XRScan.Platform
 
         private void OnEnable()
         {
-            if (meshManager != null) meshManager.meshesChanged += HandleMeshesChanged;
+            if (meshManager != null) meshManager.meshInfosChanged.AddListener(HandleMeshInfosChanged);
         }
 
         private void OnDisable()
         {
-            if (meshManager != null) meshManager.meshesChanged -= HandleMeshesChanged;
+            if (meshManager != null) meshManager.meshInfosChanged.RemoveListener(HandleMeshInfosChanged);
         }
 
-        private void HandleMeshesChanged(ARMeshesChangedEventArgs _) => OnMeshUpdated?.Invoke();
+        // meshInfosChanged replaces meshesChanged (obsolete since AR Foundation 6.4); it fires at the same point.
+        private void HandleMeshInfosChanged(ARMeshInfosChangedEventArgs _) => OnMeshUpdated?.Invoke();
 
         public IReadOnlyList<MeshFilter> GetRoomMeshes()
         {

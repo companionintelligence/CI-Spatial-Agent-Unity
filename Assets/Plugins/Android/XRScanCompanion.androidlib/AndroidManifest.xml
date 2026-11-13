@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  XRScan companion library manifest, merged into the app manifest at build time.
+  - oculus.software.overlay_keyboard (optional feature): lets the in-headset settings panel
+    (CompanionSettingsPanel) open the Quest system keyboard through TouchScreenKeyboard to type
+    server addresses.
+  The network security config is generated per build by
+  Assets/XRScan/Settings/Editor/NetworkSecurityConfigGenerator.cs. Its cleartext rules (release builds:
+  no host; development builds: only the LAN hosts in CompanionConfig.devCleartextHosts) apply to
+  Java-level networking only. The app's own HTTP traffic uses UnityWebRequest (Unity's native libcurl),
+  which ignores the config. That traffic is gated by Player Settings, Allow downloads over HTTP (checked
+  by UnityHttpBuildGuard), and by XRScan.Core.CleartextPolicy.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.companionintelligence.xrscan.companionlib">
+    <uses-feature android:name="oculus.software.overlay_keyboard" android:required="false" />
+    <application>
+    </application>
+</manifest>
