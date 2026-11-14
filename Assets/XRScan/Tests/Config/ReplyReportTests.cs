@@ -26,6 +26,8 @@ namespace XRScan.Tests.Config
         public void SetUp()
         {
             _sandbox = new OverrideSandbox();
+            _sent = null; // NUnit runs every test of a fixture on the same instance
+            _hidden = null;
             AiReplies.Clear();
             AiReplies.HideRequested += OnHide;
             _companion = ScriptableObject.CreateInstance<CompanionConfig>();
