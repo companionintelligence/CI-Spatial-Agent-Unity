@@ -398,18 +398,22 @@ namespace XRScan.Settings
             }
         }
 
+        /// <summary>
+        /// Opens the editor for a row as the model describes it (<see cref="CompanionSettingsModel.BeginTextEntry"/>): a
+        /// secret opens the system keyboard in secure mode with an empty buffer, so the stored token is never shown.
+        /// </summary>
         private void BeginEdit(SettingId id)
         {
+            var entry = _model.BeginTextEntry(id);
             _editing = true;
             _editId = id;
-            _editBuffer = _model.GetEditableText(id) ?? string.Empty;
+            _editBuffer = entry.InitialText;
 
             if (TouchScreenKeyboard.isSupported)
             {
-                bool secret = IsSecret(id);
-                _systemKeyboard = TouchScreenKeyboard.Open(_editBuffer,
-                    secret ? TouchScreenKeyboardType.Default : TouchScreenKeyboardType.URL, false, false, false, false,
-                    secret ? "API token" : "https://host:port");
+                _systemKeyboard = TouchScreenKeyboard.Open(entry.InitialText,
+                    entry.Url ? TouchScreenKeyboardType.URL : TouchScreenKeyboardType.Default,
+                    false, false, entry.Secure, false, entry.Placeholder);
             }
 
             _typingKeyboard = Keyboard.current;
@@ -478,7 +482,7 @@ namespace XRScan.Settings
             Refresh();
         }
 
-        private static bool IsSecret(SettingId id) => id == SettingId.CvToken;
+        private static bool IsSecret(SettingId id) => CompanionSettingsModel.IsSecret(id);
 
         private void CommitEdit()
         {
@@ -628,7 +632,7 @@ namespace XRScan.Settings
 
             string help = _editing
                 ? (IsSecret(_editId)
-                    ? "Type the token. A / Enter: save   B / Esc: cancel   (empty = remove it)"
+                    ? "Type the token (hidden). A / Enter: save   B / Esc: cancel   (empty = keep the stored token)"
                     : "Type the address. A / Enter: save   B / Esc: cancel   (empty = use the default)")
                 : "Thumbstick: select / change   A: edit or toggle   B or menu: close";
             _noticeRendered = HasNotice();

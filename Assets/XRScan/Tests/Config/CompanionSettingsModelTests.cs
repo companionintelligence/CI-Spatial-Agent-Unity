@@ -1,7 +1,11 @@
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using XRScan.Core;
+using XRScan.Settings;
 
 namespace XRScan.Tests.Config
 {
@@ -169,7 +173,7 @@ namespace XRScan.Tests.Config
             StringAssert.DoesNotContain(token, message);
             Assert.AreEqual(token, _sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
             Assert.AreEqual(token, _companion.server.ResolveApiToken());
-            Assert.AreEqual(token, model.GetEditableText(SettingId.CvToken), "editing starts from the stored token");
+            Assert.AreEqual(string.Empty, model.GetEditableText(SettingId.CvToken), "editing starts empty, never from the stored token");
 
             var after = model.BuildRows().Single(r => r.Id == SettingId.CvToken);
             Assert.AreEqual("set", after.Value);
@@ -181,17 +185,83 @@ namespace XRScan.Tests.Config
         }
 
         [Test]
-        public void VisionToken_BlankRemovesIt_AndTextWithSpacesIsRefused()
+        public void VisionToken_TextWithSpacesIsRefused()
         {
             var model = Release();
             Assert.IsFalse(model.TrySetSecret(SettingId.CvToken, "two words", out _));
             Assert.IsNull(_sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
             Assert.IsFalse(model.TrySetSecret(SettingId.CvServer, "abc", out _), "only secret rows take secrets");
+        }
 
-            Assert.IsTrue(model.TrySetSecret(SettingId.CvToken, "abc", out _));
-            Assert.IsTrue(model.TrySetSecret(SettingId.CvToken, "   ", out _));
-            Assert.IsNull(_sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
-            Assert.IsFalse(_companion.server.HasApiToken);
+        [TestCase("")]
+        [TestCase("   ")]
+        [TestCase(null)]
+        public void VisionToken_AnEmptySubmitKeepsTheStoredToken(string typed)
+        {
+            var model = Release();
+            Assert.IsTrue(model.TrySetSecret(SettingId.CvToken, "abc123", out _));
+
+            Assert.IsTrue(model.TrySetSecret(SettingId.CvToken, typed, out var message));
+            Assert.AreEqual("abc123", _sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
+            Assert.IsTrue(_companion.server.HasApiToken);
+            StringAssert.Contains("unchanged", message);
+            StringAssert.Contains("Reset to defaults", message, "how to remove it instead");
+            StringAssert.DoesNotContain("abc123", message);
+
+            model.Activate(SettingId.ResetAll);
+            Assert.IsFalse(_companion.server.HasApiToken, "Reset to defaults removes it");
+        }
+
+        [Test]
+        public void SecretRows_OpenTheKeyboardSecure_WithAnEmptyBuffer()
+        {
+            var model = Release();
+            model.TrySetSecret(SettingId.CvToken, "Zx81-stored-token", out _);
+            model.TrySetEndpoint(SettingId.LlmEndpoint, "https://llm.example.lan", out _);
+
+            Assert.IsTrue(CompanionSettingsModel.IsSecret(SettingId.CvToken));
+            var token = model.BeginTextEntry(SettingId.CvToken);
+            Assert.IsTrue(token.Secure, "the system keyboard hides what is typed");
+            Assert.AreEqual(string.Empty, token.InitialText, "the stored token never reaches the keyboard");
+            Assert.IsFalse(token.Url);
+
+            Assert.IsFalse(CompanionSettingsModel.IsSecret(SettingId.LlmEndpoint));
+            var endpoint = model.BeginTextEntry(SettingId.LlmEndpoint);
+            Assert.IsFalse(endpoint.Secure);
+            Assert.IsTrue(endpoint.Url);
+            Assert.AreEqual("https://llm.example.lan", endpoint.InitialText, "an address is edited from its current value");
+        }
+
+        [Test]
+        public void ThePanel_OpensTheSystemKeyboardAsTheModelSays()
+        {
+            string panel = File.ReadAllText(Path.Combine(Application.dataPath, "XRScan", "Settings", "CompanionSettingsPanel.cs"));
+            Assert.AreEqual(1, Regex.Matches(panel, @"TouchScreenKeyboard\.Open\(").Count, "one place opens the keyboard");
+            StringAssert.IsMatch(
+                @"TouchScreenKeyboard\.Open\(entry\.InitialText,\s*entry\.Url \? TouchScreenKeyboardType\.URL : TouchScreenKeyboardType\.Default,\s*false, false, entry\.Secure, false, entry\.Placeholder\)",
+                panel, "TouchScreenKeyboard.Open(text, type, autocorrection, multiline, secure, alert, placeholder)");
+        }
+
+        [Test]
+        public void ThePanel_EditsASecretFromAnEmptyBuffer_AndAnEmptySubmitKeepsIt()
+        {
+            _sandbox.Store.SetString(ServerConfig.PlayerPrefsApiTokenKey, "Zx81-stored-token");
+            var go = new GameObject("settings");
+            try
+            {
+                var panel = go.AddComponent<CompanionSettingsPanel>();
+                panel.Configure(_companion, null);
+                const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+                typeof(CompanionSettingsPanel).GetMethod("BeginEdit", Private).Invoke(panel, new object[] { SettingId.CvToken });
+                Assert.AreEqual(string.Empty, typeof(CompanionSettingsPanel).GetField("_editBuffer", Private).GetValue(panel));
+
+                typeof(CompanionSettingsPanel).GetMethod("CommitEdit", Private).Invoke(panel, null);
+                Assert.AreEqual("Zx81-stored-token", _sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
         }
 
         [Test]

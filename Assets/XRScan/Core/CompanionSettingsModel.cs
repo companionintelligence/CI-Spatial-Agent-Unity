@@ -31,6 +31,32 @@ namespace XRScan.Core
         Secret
     }
 
+    /// <summary>
+    /// How the panel opens the text editor for a row: the text it starts from, and whether the system keyboard hides what
+    /// is typed. A secret starts empty and hidden, so the stored value is never on screen.
+    /// </summary>
+    public sealed class TextEntry
+    {
+        public TextEntry(string initialText, bool secure, bool url, string placeholder)
+        {
+            InitialText = initialText ?? string.Empty;
+            Secure = secure;
+            Url = url;
+            Placeholder = placeholder ?? string.Empty;
+        }
+
+        /// <summary>The text the editor starts from: the current address for an endpoint, empty for a secret.</summary>
+        public string InitialText { get; }
+
+        /// <summary>True for a secret: the system keyboard opens in its secure (password) mode.</summary>
+        public bool Secure { get; }
+
+        /// <summary>True for an address: the system keyboard opens with its URL layout.</summary>
+        public bool Url { get; }
+
+        public string Placeholder { get; }
+    }
+
     /// <summary>One display row of the settings panel.</summary>
     public sealed class SettingRow
     {
@@ -161,7 +187,7 @@ namespace XRScan.Core
                 bool hasToken = server.HasApiToken;
                 rows.Add(new SettingRow(SettingId.CvToken, SettingKind.Secret, "Vision server token", hasToken ? "set" : NotSet,
                     hasToken
-                        ? "Sent only to the vision server, with each scan."
+                        ? "Sent only to the vision server, with each scan. A: replace it. Reset to defaults removes it."
                         : "The vision server answers only with its API token (CV_SERVER_API_TOKEN on the server).",
                     !hasToken));
             }
@@ -178,7 +204,10 @@ namespace XRScan.Core
             return rows;
         }
 
-        /// <summary>Text to pre-fill the editor with for an endpoint row (the effective value, possibly blocked).</summary>
+        /// <summary>
+        /// Text to pre-fill the editor with for an endpoint row (the effective value, possibly blocked). A secret row starts
+        /// empty: the stored secret is never put back on screen or into the keyboard.
+        /// </summary>
         public string GetEditableText(SettingId id)
         {
             switch (id)
@@ -189,16 +218,27 @@ namespace XRScan.Core
                     return _config.voice != null ? _config.voice.ResolveSelfHostedBaseUrl(out _) : string.Empty;
                 case SettingId.CvServer:
                     return _config.server != null ? UrlOf(_config.server.ResolveEndpoint(_isDevelopmentBuild, _devAllowlist)) : string.Empty;
-                case SettingId.CvToken:
-                    return ConfigOverrides.GetOverride(ServerConfig.PlayerPrefsApiTokenKey) ?? string.Empty;
                 default:
                     return string.Empty;
             }
         }
 
+        /// <summary>True for a row whose value is a secret (typed hidden, shown only as set / not set).</summary>
+        public static bool IsSecret(SettingId id) => id == SettingId.CvToken;
+
         /// <summary>
-        /// Stores a secret typed in the panel (the vision server's API token) as a PlayerPrefs override. Blank text
-        /// removes it. The message never contains the secret.
+        /// How the panel opens the editor for <paramref name="id"/>: a secret opens the system keyboard in secure mode with
+        /// an empty buffer; an endpoint opens it with the URL layout, pre-filled with the current address.
+        /// </summary>
+        public TextEntry BeginTextEntry(SettingId id)
+        {
+            if (IsSecret(id)) return new TextEntry(string.Empty, true, false, "API token");
+            return new TextEntry(GetEditableText(id), false, true, "https://host:port");
+        }
+
+        /// <summary>
+        /// Stores a secret typed in the panel (the vision server's API token) as a PlayerPrefs override. The editor starts
+        /// empty, so blank text keeps the stored token; Reset to defaults removes it. The message never contains the secret.
         /// </summary>
         public bool TrySetSecret(SettingId id, string text, out string message)
         {
@@ -211,8 +251,9 @@ namespace XRScan.Core
             string value = text == null ? string.Empty : text.Trim();
             if (value.Length == 0)
             {
-                ConfigOverrides.SetOverride(ServerConfig.PlayerPrefsApiTokenKey, null);
-                message = "Vision server token removed.";
+                message = ConfigOverrides.GetOverride(ServerConfig.PlayerPrefsApiTokenKey) != null
+                    ? "Nothing typed, so the vision server token is unchanged. Reset to defaults removes it."
+                    : "Nothing typed; no vision server token is set.";
                 return true;
             }
 
