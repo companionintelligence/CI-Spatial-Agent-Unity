@@ -15,7 +15,7 @@ Ollama version and the model's digest, go to a JSON file to keep with the releas
 
 Usage:
   python3 tools/reply-check/run_reply_check.py [--url http://localhost:11434] [--model granite3-guardian:2b]
-                                               [--out FILE] [--cafile CA.pem] [--timeout 60]
+                                               [--out FILE|FOLDER] [--cafile CA.pem] [--timeout 60]
 
 Exit status: 0 = every expectation met, 1 = at least one case failed, 2 = the server or the model
 could not be used (nothing was judged).
@@ -103,10 +103,13 @@ def main():
     parser.add_argument("--url", default="http://localhost:11434", help="the Ollama server (default %(default)s)")
     parser.add_argument("--model", help="the safety model (default: the one cases.json names, as the app uses)")
     parser.add_argument("--cases", default=os.path.join(HERE, "cases.json"), help="the test set (default: cases.json here)")
-    parser.add_argument("--out", help="results file (default: reply-check-<model>-<UTC time>.json in the current folder)")
+    parser.add_argument("--out", help="results file, or an existing folder to write reply-check-<model>-<UTC time>.json in "
+                                      "(default: that file in the current folder); keep it outside this repository")
     parser.add_argument("--cafile", help="CA certificate(s) for an https:// server signed by your own CA")
     parser.add_argument("--timeout", type=float, default=60.0, help="seconds per request (default %(default)s)")
     args = parser.parse_args()
+    if args.out and not os.path.isdir(args.out) and not os.path.isdir(os.path.dirname(os.path.abspath(args.out))):
+        parser.error("--out: there is no folder %s" % os.path.dirname(os.path.abspath(args.out)))
 
     with open(args.cases, encoding="utf-8") as f:
         cases = json.load(f)
@@ -159,7 +162,8 @@ def main():
         "summary": {"cases": met + failed, "met": met, "failed": failed},
         "categories": results,
     }
-    out = args.out or "reply-check-%s-%s.json" % (re.sub(r"[^A-Za-z0-9._-]", "_", model), started.strftime("%Y%m%dT%H%M%SZ"))
+    name = "reply-check-%s-%s.json" % (re.sub(r"[^A-Za-z0-9._-]", "_", model), started.strftime("%Y%m%dT%H%M%SZ"))
+    out = os.path.join(args.out, name) if args.out and os.path.isdir(args.out) else (args.out or name)
     with open(out, "w", encoding="utf-8") as f:
         json.dump(record, f, indent=2)
         f.write("\n")

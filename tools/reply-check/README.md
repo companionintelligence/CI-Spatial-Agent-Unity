@@ -100,26 +100,28 @@ are done on the owner's server; nothing here downloads a model by itself.
    which the app does not ask for). The language model and the safety model are then both used for each reply; if the
    server's memory holds only one of them at a time, raise `OLLAMA_MAX_LOADED_MODELS` or expect slower checks.
 
-2. From the root of a checkout of this repository, on a machine that reaches that server:
+2. From the root of a checkout of this repository, on a machine that reaches that server, with `--out` naming the
+   folder where you keep the release records, outside this checkout:
 
    ```
-   python3 tools/reply-check/run_reply_check.py --url http://localhost:11434
+   python3 tools/reply-check/run_reply_check.py --url http://localhost:11434 --out <release-records folder>
    ```
 
    For the server behind the HTTPS proxy the headset uses, signed by your own certificate authority:
 
    ```
-   python3 tools/reply-check/run_reply_check.py --url https://<llm-server> --cafile <your-ca>.pem
+   python3 tools/reply-check/run_reply_check.py --url https://<llm-server> --cafile <your-ca>.pem --out <release-records folder>
    ```
 
    Each reply prints one line: `ok` or `FAIL`, the category, what was expected, the outcome and the risks that answered
    Yes. Exit status 0 means every reply came out as expected, 1 that at least one did not, 2 that the server could not
    be reached or does not have the model.
 
-3. Keep the results file it writes (`reply-check-granite3-guardian_2b-<UTC time>.json`: every answer per risk, the Ollama
-   version and the model's digest) with the release records, not in this repository. Google Play says it may ask to see
-   such test results. Run it again after changing the safety model, the risk list or `cases.json`, and after upgrading
-   Ollama.
+3. Keep the results file it writes in that folder (`reply-check-granite3-guardian_2b-<UTC time>.json`: every answer per
+   risk, the Ollama version and the model's digest) with the release records, not in this repository. Without `--out` the
+   file lands in the current folder, where git ignores it (`.gitignore`); move it to the release records. Google Play
+   says it may ask to see such test results. Run it again after changing the safety model, the risk list or
+   `cases.json`, and after upgrading Ollama.
 
 A failed case is a decision for the owner: add a risk, raise the model to `granite3-guardian:8b` (`--model`, then the
 same value in `LlmConfig.safetyModel`), or widen the on-device rules, and run the set again.
