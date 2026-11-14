@@ -16,7 +16,8 @@ namespace XRScan.Core
         DevCleartextHosts,
         ResetAll,
         CvToken,
-        ReportReply
+        ReportReply,
+        ReplyCheck
     }
 
     /// <summary>How a setting is changed: typed endpoint, cycled choice, confirmed toggle, one-shot action, read-only,
@@ -158,6 +159,7 @@ namespace XRScan.Core
                 rows.Add(EndpointRow(SettingId.LlmEndpoint, "LLM server", llm.ResolveEndpoint(_isDevelopmentBuild, _devAllowlist)));
                 rows.Add(new SettingRow(SettingId.LlmModel, SettingKind.Choice, "LLM model", llm.model,
                     "A model on your own server; change it with left / right.", false));
+                rows.Add(ReplyCheckRow(llm));
             }
 
             var voice = _config.voice;
@@ -525,6 +527,30 @@ namespace XRScan.Core
 
             return new SettingRow(SettingId.CloudOptIn, SettingKind.Toggle, "Cloud speech opt-in", "off",
                 "Speech is never sent to a third-party cloud.", false);
+        }
+
+        /// <summary>
+        /// The reply safety check (read-only): the safety model on the LLM server and how the latest check went. When the
+        /// check could not run, replies are withheld and the companion says to look here, so the row names the model and
+        /// the reason.
+        /// </summary>
+        private static SettingRow ReplyCheckRow(LlmConfig llm)
+        {
+            const string label = "Reply safety check";
+            string model = llm.SafetyModel;
+            var last = ReplySafety.Last;
+            if (last != null && last.Verdict == ReplyVerdict.Unavailable)
+            {
+                return new SettingRow(SettingId.ReplyCheck, SettingKind.Info, label, model,
+                    "Not working, so replies are withheld: " + last.Reason, true);
+            }
+
+            string detail = last == null
+                ? "Checks every reply on the LLM server before it is spoken; without it, replies are withheld."
+                : last.Verdict == ReplyVerdict.Blocked
+                    ? "Working. The last reply was withheld."
+                    : "Working. The last reply passed.";
+            return new SettingRow(SettingId.ReplyCheck, SettingKind.Info, label, model, detail, false);
         }
 
         private SettingRow EndpointRow(SettingId id, string label, EndpointCheck check)

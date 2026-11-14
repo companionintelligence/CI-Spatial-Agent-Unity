@@ -1,64 +1,16 @@
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.Events;
 using XRScan.Agent;
 using XRScan.Core;
 
 namespace XRScan.Tests.EditMode
 {
     /// <summary>
-    /// The conversation loop's part in reporting an AI reply: it records each reply with the question and the model
-    /// that wrote it, and stops speaking a reply the user hides.
+    /// The conversation loop's part in reporting an AI reply: it records each reply that passed the reply check with the
+    /// question and the model that wrote it, and stops speaking a reply the user hides.
     /// </summary>
     public class ConversationReportTests
     {
-        private sealed class FakeStt : ISpeechToText
-        {
-            public bool IsInitialized => true;
-            public bool IsListening => false;
-            public bool IsProcessing => false;
-            public UnityEvent OnListeningStarted { get; } = new UnityEvent();
-            public UnityEvent OnListeningStopped { get; } = new UnityEvent();
-            public UnityEvent<string> OnTranscriptionComplete { get; } = new StringUnityEvent();
-            public UnityEvent<string> OnError { get; } = new StringUnityEvent();
-            public void Initialize() { }
-            public void StartListening() { }
-            public void StopListening() { }
-            public void ToggleListening() { }
-        }
-
-        private sealed class FakeLlm : ILlmBackend
-        {
-            public string LastPrompt;
-            public bool IsInitialized => true;
-            public bool IsConnected => true;
-            public bool IsProcessing => false;
-            public string ServerAddress => "test";
-            public string ModelName => "test-model:1b";
-            public UnityEvent OnProcessingStarted { get; } = new UnityEvent();
-            public UnityEvent<string> OnResponseReceived { get; } = new StringUnityEvent();
-            public UnityEvent<string> OnError { get; } = new StringUnityEvent();
-            public void Initialize() { }
-            public void SendTextRequest(string prompt) => LastPrompt = prompt;
-            public void SendVisionRequest(Texture2D image, string prompt) => LastPrompt = prompt;
-        }
-
-        private sealed class FakeTts : ITextToSpeech
-        {
-            public string Spoken;
-            public int Stops;
-            public bool IsInitialized => true;
-            public bool IsPlaying => false;
-            public AudioSource OutputSource => null;
-            public UnityEvent OnSpeechStarted { get; } = new UnityEvent();
-            public UnityEvent OnSpeechCompleted { get; } = new UnityEvent();
-            public UnityEvent<string> OnError { get; } = new StringUnityEvent();
-            public void Initialize() { }
-            public void SpeakText(string text) => Spoken = text;
-            public void StopSpeaking() => Stops++;
-            public void SetVoiceSettings(string voice, float speed, float pitch) { }
-        }
-
         private GameObject _go;
         private FakeStt _stt;
         private FakeLlm _llm;
@@ -68,11 +20,12 @@ namespace XRScan.Tests.EditMode
         public void SetUp()
         {
             AiReplies.Clear();
+            ReplySafety.Clear();
             _go = new GameObject("conversation");
             _stt = new FakeStt();
             _llm = new FakeLlm();
             _tts = new FakeTts();
-            _go.AddComponent<ConversationOrchestrator>().Configure(_stt, _llm, _tts, null);
+            _go.AddComponent<ConversationOrchestrator>().Configure(_stt, _llm, _tts, null, new FakeChecker());
         }
 
         [TearDown]
@@ -81,6 +34,7 @@ namespace XRScan.Tests.EditMode
             _go.GetComponent<ConversationOrchestrator>().Configure(null, null, null, null); // drops the hide subscription
             Object.DestroyImmediate(_go);
             AiReplies.Clear();
+            ReplySafety.Clear();
         }
 
         [Test]

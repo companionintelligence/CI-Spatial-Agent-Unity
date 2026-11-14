@@ -13,9 +13,10 @@ namespace XRScan.App
     /// Single startup wiring point for the whole app. Chooses a camera provider and a detector
     /// (on-device Sentis / remote CV server; demo mocks only behind the developer switch
     /// <c>useMocks</c>), configures the scan pipeline, the avatar perception bridge (scan → look + speak),
-    /// and the voice Q&amp;A conversation loop (STT → LLM grounded in scanned pins → TTS).
+    /// and the voice Q&amp;A conversation loop (STT → LLM grounded in scanned pins → reply check → TTS).
     /// Trigger via Scan() / ToggleListen(). With no vision server set, scanning says so instead of
-    /// showing made-up detections.
+    /// showing made-up detections. The reply check is the LLM backend's own (OllamaBackend: IBM Granite Guardian on
+    /// the same server); a backend without one gets every reply withheld.
     /// </summary>
     public class AppBootstrap : MonoBehaviour
     {
@@ -68,7 +69,7 @@ namespace XRScan.App
             {
                 var stt = sttBehaviour as ISpeechToText;
                 var llm = llmBehaviour as ILlmBackend;
-                conversation.Configure(stt, llm, tts, knowledge);
+                conversation.Configure(stt, llm, tts, knowledge, llmBehaviour as IReplyChecker);
             }
 
             Debug.Log("[AppBootstrap] Ready. Scan() to place a pin; ToggleListen() to talk.");

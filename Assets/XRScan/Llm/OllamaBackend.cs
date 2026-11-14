@@ -15,8 +15,11 @@ namespace XRScan.Llm
     /// Companion Intelligence server behind the same ILlmBackend seam with no downstream change.
     /// Every request sends the fixed safety prompt and the persona as Ollama's <c>system</c> message
     /// (<see cref="LlmConfig.BuildSystemMessage"/>) and the user's text, unchanged, as the prompt.
+    /// It is also the reply check (<see cref="IReplyChecker"/>): IBM Granite Guardian (<see cref="LlmConfig.SafetyModel"/>)
+    /// on the same server judges each reply for every risk in <see cref="GraniteGuardian.Risks"/>, one request each, sent
+    /// together; see <see cref="GraniteGuardian"/>.
     /// </summary>
-    public class OllamaBackend : MonoBehaviour, ILlmBackend
+    public class OllamaBackend : MonoBehaviour, ILlmBackend, IReplyChecker
     {
         [SerializeField] private LlmConfig config;
 
@@ -86,6 +89,78 @@ namespace XRScan.Llm
                 images = images ?? new string[0]
             };
             return JsonUtility.ToJson(req);
+        }
+
+        public string CheckerName => config != null ? config.SafetyModel : LlmConfig.DefaultSafetyModel;
+
+        public float TimeoutSeconds =>
+            config != null ? config.SafetyCheckTimeoutSeconds : ReplySafety.ClampTimeout(LlmConfig.DefaultSafetyCheckTimeoutSeconds);
+
+        /// <summary>
+        /// Asks the safety model about <paramref name="reply"/> once per risk, all at once, on the language model's server.
+        /// The first Yes blocks the reply (the other requests are dropped); it is safe only when every answer is No.
+        /// </summary>
+        public void Check(string question, string reply, Action<ReplyCheckResult> done)
+        {
+            if (done == null) return;
+            if (config == null || !_initialized || string.IsNullOrEmpty(_baseUrl))
+            {
+                done(ReplyCheckResult.Unavailable("the LLM server is not set up yet."));
+                return;
+            }
+            StartCoroutine(CheckReply(question, reply, done));
+        }
+
+        private IEnumerator CheckReply(string question, string reply, Action<ReplyCheckResult> done)
+        {
+            string model = config.SafetyModel;
+            int timeout = Mathf.CeilToInt(config.SafetyCheckTimeoutSeconds);
+            var risks = GraniteGuardian.Risks;
+            var requests = new UnityWebRequest[risks.Count];
+            var results = new ReplyCheckResult[risks.Count];
+            try
+            {
+                for (int i = 0; i < risks.Count; i++)
+                {
+                    string json = GraniteGuardian.BuildRequestJson(model, risks[i], question, reply);
+                    var web = new UnityWebRequest(_baseUrl + GraniteGuardian.ChatPath, "POST");
+                    web.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
+                    web.downloadHandler = new DownloadHandlerBuffer();
+                    web.SetRequestHeader("Content-Type", "application/json");
+                    web.timeout = timeout;
+                    requests[i] = web;
+                    web.SendWebRequest();
+                }
+
+                for (int open = risks.Count; open > 0;)
+                {
+                    yield return null;
+                    open = 0;
+                    for (int i = 0; i < risks.Count; i++)
+                    {
+                        if (results[i] != null) continue;
+                        var web = requests[i];
+                        if (!web.isDone)
+                        {
+                            open++;
+                            continue;
+                        }
+
+                        results[i] = GraniteGuardian.ReadAnswer(model, risks[i], web.responseCode, web.downloadHandler?.text,
+                            web.result == UnityWebRequest.Result.Success ? null : (web.error ?? "request failed"));
+                        if (results[i].Verdict == ReplyVerdict.Blocked)
+                        {
+                            done(results[i]);
+                            yield break;
+                        }
+                    }
+                }
+                done(ReplyCheckResult.Combine(results));
+            }
+            finally
+            {
+                foreach (var web in requests) web?.Dispose(); // also aborts the requests a Yes made unnecessary
+            }
         }
 
         private IEnumerator Send(string prompt, Texture2D image)

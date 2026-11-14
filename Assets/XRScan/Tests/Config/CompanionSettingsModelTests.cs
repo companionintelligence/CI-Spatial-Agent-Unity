@@ -32,6 +32,7 @@ namespace XRScan.Tests.Config
         [TearDown]
         public void TearDown()
         {
+            ReplySafety.Clear();
             Object.DestroyImmediate(_companion.llm);
             Object.DestroyImmediate(_companion.voice);
             Object.DestroyImmediate(_companion.server);
@@ -261,6 +262,56 @@ namespace XRScan.Tests.Config
             finally
             {
                 Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void TheReplyCheckRow_NamesTheSafetyModel_AndWhyRepliesAreWithheld()
+        {
+            var row = Release().BuildRows().Single(r => r.Id == SettingId.ReplyCheck);
+            Assert.AreEqual(SettingKind.Info, row.Kind, "read-only: nothing in the panel turns the check off");
+            Assert.AreEqual("granite3-guardian:2b", row.Value);
+            Assert.IsFalse(row.IsWarning);
+
+            ReplySafety.Record(ReplyCheckResult.Unavailable(
+                "granite3-guardian:2b is not installed on the LLM server. Install it there: ollama pull granite3-guardian:2b"));
+            row = Release().BuildRows().Single(r => r.Id == SettingId.ReplyCheck);
+            Assert.IsTrue(row.IsWarning);
+            StringAssert.Contains("withheld", row.Detail);
+            StringAssert.Contains("ollama pull granite3-guardian:2b", row.Detail);
+
+            ReplySafety.Record(ReplyCheckResult.Safe());
+            Assert.IsFalse(Release().BuildRows().Single(r => r.Id == SettingId.ReplyCheck).IsWarning);
+        }
+
+        [Test]
+        public void TheReplyCheck_HasAModelAndATimeout_AndNoOffSwitch()
+        {
+            var llm = _companion.llm;
+            Assert.AreEqual(LlmConfig.DefaultSafetyModel, llm.SafetyModel);
+            Assert.AreEqual(20f, llm.SafetyCheckTimeoutSeconds);
+
+            llm.safetyModel = "  ";
+            Assert.AreEqual(LlmConfig.DefaultSafetyModel, llm.SafetyModel, "blank means the default model, not no check");
+            llm.safetyModel = "granite3-guardian:8b";
+            Assert.AreEqual("granite3-guardian:8b", llm.SafetyModel);
+            _sandbox.Environment[LlmConfig.EnvSafetyModelKey] = "granite4.1-guardian:8b";
+            Assert.AreEqual("granite4.1-guardian:8b", llm.SafetyModel);
+
+            llm.safetyCheckTimeoutSeconds = 0f;
+            Assert.AreEqual(ReplySafety.MinTimeoutSeconds, llm.SafetyCheckTimeoutSeconds);
+            llm.safetyCheckTimeoutSeconds = 1e6f;
+            Assert.AreEqual(ReplySafety.MaxTimeoutSeconds, llm.SafetyCheckTimeoutSeconds);
+            llm.safetyCheckTimeoutSeconds = float.NaN;
+            Assert.AreEqual(ReplySafety.MinTimeoutSeconds, llm.SafetyCheckTimeoutSeconds);
+
+            foreach (var type in new[] { typeof(LlmConfig), typeof(CompanionConfig) })
+            {
+                var switches = type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                    .Where(f => f.FieldType == typeof(bool) && (f.IsPublic || f.GetCustomAttribute<SerializeField>() != null))
+                    .Select(f => f.Name)
+                    .Where(n => Regex.IsMatch(n, "safety|check|guard|filter|moderat", RegexOptions.IgnoreCase));
+                CollectionAssert.IsEmpty(switches, type.Name + " must have no setting that turns the reply check off");
             }
         }
 

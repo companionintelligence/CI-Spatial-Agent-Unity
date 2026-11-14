@@ -51,6 +51,8 @@ namespace XRScan.Tests.Config
             Assert.IsInstanceOf<ServerConfig>(Field(bootstrap, "serverConfig"));
             Assert.AreEqual("PermissionGatedSpeechToText", Field(bootstrap, "sttBehaviour").GetType().Name);
             Assert.AreEqual("OllamaBackend", Field(bootstrap, "llmBehaviour").GetType().Name);
+            Assert.IsInstanceOf<IReplyChecker>(Field(bootstrap, "llmBehaviour"),
+                "the LLM backend brings the reply check (Granite Guardian on the same server); without one every reply is withheld");
             Assert.AreEqual("CloudTts", Field(bootstrap, "ttsBehaviour").GetType().Name);
 
             var gate = (PermissionGatedSpeechToText)Field(bootstrap, "sttBehaviour");

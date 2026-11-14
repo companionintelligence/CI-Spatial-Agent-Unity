@@ -131,12 +131,14 @@ namespace XRScan.Settings
             _back?.Enable();
             RuntimePermissions.Notice += ShowNotice;
             UserNotices.Posted += ShowNotice;
+            ReplySafety.Changed += RefreshIfOpen;
         }
 
         private void OnDisable()
         {
             RuntimePermissions.Notice -= ShowNotice;
             UserNotices.Posted -= ShowNotice;
+            ReplySafety.Changed -= RefreshIfOpen;
             if (_open) Close();
             EndEdit();
             _toggle?.Disable();
@@ -517,6 +519,12 @@ namespace XRScan.Settings
                 _typingKeyboard.onTextInput -= OnTextInput;
                 _typingKeyboard = null;
             }
+        }
+
+        /// <summary>Shows the latest reply-check outcome while the panel is open (not while a value is being typed).</summary>
+        private void RefreshIfOpen()
+        {
+            if (_open && !_editing) Refresh();
         }
 
         private PanelRow SelectedRow() => _selected >= 0 && _selected < _rows.Count ? _rows[_selected] : null;
