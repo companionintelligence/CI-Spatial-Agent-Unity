@@ -27,7 +27,16 @@ namespace XRScan.Core
         /// <summary>Latest frame as JPEG bytes, or null if unavailable this frame.</summary>
         byte[] GetCurrentFrameJpeg(int quality = 75);
 
-        /// <summary>Camera intrinsics (focal length / principal point) for 2D-&gt;3D unprojection.</summary>
+        /// <summary>
+        /// Width and height in pixels of the image the last <see cref="GetCurrentFrameJpeg"/> call returned;
+        /// (0, 0) before the first frame. Detection boxes are relative to this image.
+        /// </summary>
+        Vector2Int FrameSize { get; }
+
+        /// <summary>
+        /// Camera intrinsics (focal length / principal point, in pixels of that image) for 2D-&gt;3D
+        /// unprojection; <see cref="Matrix4x4.zero"/> when the provider does not know them.
+        /// </summary>
         Matrix4x4 GetCameraIntrinsics();
 
         /// <summary>World-space pose of the camera at the latest frame.</summary>

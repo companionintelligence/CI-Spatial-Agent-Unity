@@ -146,7 +146,13 @@ flowchart TD
     ITTS --> Piper[Piper on-device]
 ```
 
-`DetectorFactory` prefers the on-device detector when ready (untethered), else the CV server when a URL is configured, else a mock.
+`DetectorFactory` prefers the on-device detector when ready (untethered), else the CV server. With no CV server set, `RemoteCvDetector` reports itself not ready and a trigger pull tells the user to set one in Settings; nothing stands in with invented detections. Each scan sends the camera frame with its real size, a prompt listing common room objects (`ScanController.DefaultDetectionPrompt`) and the server's API token (`ServerConfig.ResolveApiToken`: the settings panel, or `XRSCAN_SERVER_TOKEN`), and reads the boxes as the server's contract defines them: `[x1, y1, x2, y2]` fractions of the image, origin top-left.
+
+Every language-model request carries the fixed `SafetyPrompt` as the system message (Ollama's `system` field), ahead of the configurable persona in `LlmConfig.systemPrompt`; neither the settings panel nor a config asset can change or drop it. The user's question goes as the prompt, unchanged.
+
+Every reply then passes a check before it is spoken, shown or kept, and the check fails closed (`ReplyGate`). On-device rules come first (`LocalReplyRules`: a child or teenager together with sexual words, and claims to be human), then the language-model backend's `IReplyChecker`: for `OllamaBackend`, IBM Granite Guardian (`LlmConfig.safetyModel`, default `granite3-guardian:2b`) on the same Ollama server, asked once per risk (`GraniteGuardian.Risks`) with only the user's question and the reply. Any Yes withholds the reply and the companion says a fixed line (`ReplySafety.BlockedLine`); an error, a timeout (`LlmConfig.safetyCheckTimeoutSeconds`), a missing model, an unreadable answer or a backend without a check also withholds it, with a second fixed line that points to Settings, where the **Reply safety check** row names the model and the reason. No setting turns the check off. Pin labels, the vision model's text, are kept only when every word is a word of the detection prompt (`ScanController.CheckedLabel`), else they read "object". The test set and the commands that run it against a live server are in [tools/reply-check](../tools/reply-check/README.md).
+
+Each reply that passes is kept in memory as `AiReplies.Last` so it can be reported from inside the app. One question goes to the model at a time (a question asked while it is still answering is not sent), so each reply is checked and kept with the question it answers. The settings panel's first row, **Report last reply**, hides it at once (its speech stops), shows what a report sends and where, and on a second press sends the question, the reply, the model name, the app version and a reason to `CompanionConfig.replyReportDestination`: by default an email, filled in, to the company's published support address, which needs no server; an `https://` endpoint that takes a JSON POST works too.
 
 ---
 
@@ -220,4 +226,4 @@ flowchart LR
 Unity.exe -runTests -testPlatform EditMode -projectPath . -testResults results.xml -batchmode
 ```
 
-The whole app also runs in-Editor on mocks (`AppBootstrap.useMocks = true`) — no device, server, or keys required — which is how Phases 1–2 are verified.
+The whole app also runs in-Editor on mocks — no device, server, or keys required — which is how Phases 1–2 are verified. The mocks sit behind the developer switch `AppBootstrap.useMocks`, which is off by default and on only in the `XRScan_Dev` scene; release builds of a scene with it on fail (`ReleaseMockGuard`).

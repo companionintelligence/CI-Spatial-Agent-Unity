@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace XRScan.Core
 {
@@ -13,17 +14,48 @@ namespace XRScan.Core
         CloudOptIn,
         CvServer,
         DevCleartextHosts,
-        ResetAll
+        ResetAll,
+        CvToken,
+        ReportReply,
+        ReplyCheck
     }
 
-    /// <summary>How a setting is changed: typed endpoint, cycled choice, confirmed toggle, one-shot action, or read-only.</summary>
+    /// <summary>How a setting is changed: typed endpoint, cycled choice, confirmed toggle, one-shot action, read-only,
+    /// or typed secret (shown only as set / not set).</summary>
     public enum SettingKind
     {
         Endpoint,
         Choice,
         Toggle,
         Action,
-        Info
+        Info,
+        Secret
+    }
+
+    /// <summary>
+    /// How the panel opens the text editor for a row: the text it starts from, and whether the system keyboard hides what
+    /// is typed. A secret starts empty and hidden, so the stored value is never on screen.
+    /// </summary>
+    public sealed class TextEntry
+    {
+        public TextEntry(string initialText, bool secure, bool url, string placeholder)
+        {
+            InitialText = initialText ?? string.Empty;
+            Secure = secure;
+            Url = url;
+            Placeholder = placeholder ?? string.Empty;
+        }
+
+        /// <summary>The text the editor starts from: the current address for an endpoint, empty for a secret.</summary>
+        public string InitialText { get; }
+
+        /// <summary>True for a secret: the system keyboard opens in its secure (password) mode.</summary>
+        public bool Secure { get; }
+
+        /// <summary>True for an address: the system keyboard opens with its URL layout.</summary>
+        public bool Url { get; }
+
+        public string Placeholder { get; }
     }
 
     /// <summary>One display row of the settings panel.</summary>
@@ -71,7 +103,11 @@ namespace XRScan.Core
             VoiceConfig.PlayerPrefsApiKey,
             VoiceConfig.PlayerPrefsSelfHostedTokenKey,
             ServerConfig.PlayerPrefsBaseUrlKey,
+            ServerConfig.PlayerPrefsApiTokenKey,
         };
+
+        /// <summary>Longest secret the panel stores (the CV server's tokens are 43 characters).</summary>
+        public const int MaxSecretLength = 512;
 
         private readonly CompanionConfig _config;
         private readonly bool _isDevelopmentBuild;
@@ -94,9 +130,28 @@ namespace XRScan.Core
         /// <summary>True after the first activation of the cloud opt-in, until it is confirmed or cancelled.</summary>
         public bool CloudOptInPending { get; private set; }
 
+        /// <summary>
+        /// Sends a report the user confirmed (opens the email app, or posts it) and returns what to tell the user.
+        /// The settings panel sets it; without it reports cannot be sent.
+        /// </summary>
+        public Func<ReplyReport, string> SendReport { get; set; }
+
+        /// <summary>The app version a report names.</summary>
+        public string AppVersion { get; set; } = Application.version;
+
+        /// <summary>True after the first Report press hid the reply, until the report is sent or cancelled.</summary>
+        public bool ReportPending => _reportedReply != null;
+
+        /// <summary>The reason the pending report gives (left / right changes it).</summary>
+        public string ReportReason => ReplyReporting.Reasons[_reasonIndex];
+
+        private AiReply _reportedReply;
+        private int _reasonIndex;
+
         public List<SettingRow> BuildRows()
         {
             var rows = new List<SettingRow>();
+            rows.Add(ReportRow());
 
             var llm = _config.llm;
             if (llm != null)
@@ -104,6 +159,7 @@ namespace XRScan.Core
                 rows.Add(EndpointRow(SettingId.LlmEndpoint, "LLM server", llm.ResolveEndpoint(_isDevelopmentBuild, _devAllowlist)));
                 rows.Add(new SettingRow(SettingId.LlmModel, SettingKind.Choice, "LLM model", llm.model,
                     "A model on your own server; change it with left / right.", false));
+                rows.Add(ReplyCheckRow(llm));
             }
 
             var voice = _config.voice;
@@ -130,6 +186,12 @@ namespace XRScan.Core
             if (server != null)
             {
                 rows.Add(EndpointRow(SettingId.CvServer, "Vision (CV) server", server.ResolveEndpoint(_isDevelopmentBuild, _devAllowlist)));
+                bool hasToken = server.HasApiToken;
+                rows.Add(new SettingRow(SettingId.CvToken, SettingKind.Secret, "Vision server token", hasToken ? "set" : NotSet,
+                    hasToken
+                        ? "Sent only to the vision server, with each scan. A: replace it. Reset to defaults removes it."
+                        : "The vision server answers only with its API token (CV_SERVER_API_TOKEN on the server).",
+                    !hasToken));
             }
 
             rows.Add(new SettingRow(SettingId.DevCleartextHosts, SettingKind.Info, "Plain-HTTP hosts",
@@ -144,7 +206,10 @@ namespace XRScan.Core
             return rows;
         }
 
-        /// <summary>Text to pre-fill the editor with for an endpoint row (the effective value, possibly blocked).</summary>
+        /// <summary>
+        /// Text to pre-fill the editor with for an endpoint row (the effective value, possibly blocked). A secret row starts
+        /// empty: the stored secret is never put back on screen or into the keyboard.
+        /// </summary>
         public string GetEditableText(SettingId id)
         {
             switch (id)
@@ -158,6 +223,60 @@ namespace XRScan.Core
                 default:
                     return string.Empty;
             }
+        }
+
+        /// <summary>True for a row whose value is a secret (typed hidden, shown only as set / not set).</summary>
+        public static bool IsSecret(SettingId id) => id == SettingId.CvToken;
+
+        /// <summary>
+        /// How the panel opens the editor for <paramref name="id"/>: a secret opens the system keyboard in secure mode with
+        /// an empty buffer; an endpoint opens it with the URL layout, pre-filled with the current address.
+        /// </summary>
+        public TextEntry BeginTextEntry(SettingId id)
+        {
+            if (IsSecret(id)) return new TextEntry(string.Empty, true, false, "API token");
+            return new TextEntry(GetEditableText(id), false, true, "https://host:port");
+        }
+
+        /// <summary>
+        /// Stores a secret typed in the panel (the vision server's API token) as a PlayerPrefs override. The editor starts
+        /// empty, so blank text keeps the stored token; Reset to defaults removes it. The message never contains the secret.
+        /// </summary>
+        public bool TrySetSecret(SettingId id, string text, out string message)
+        {
+            if (id != SettingId.CvToken)
+            {
+                message = "Not a secret setting.";
+                return false;
+            }
+
+            string value = text == null ? string.Empty : text.Trim();
+            if (value.Length == 0)
+            {
+                message = ConfigOverrides.GetOverride(ServerConfig.PlayerPrefsApiTokenKey) != null
+                    ? "Nothing typed, so the vision server token is unchanged. Reset to defaults removes it."
+                    : "Nothing typed; no vision server token is set.";
+                return true;
+            }
+
+            if (value.Length > MaxSecretLength)
+            {
+                message = "That token is too long (at most " + MaxSecretLength + " characters).";
+                return false;
+            }
+
+            foreach (char c in value)
+            {
+                if (c <= ' ' || c > '~')
+                {
+                    message = "A token has no spaces or special characters; check what you typed.";
+                    return false;
+                }
+            }
+
+            ConfigOverrides.SetOverride(ServerConfig.PlayerPrefsApiTokenKey, value);
+            message = "Vision server token saved. It is sent only to the vision server.";
+            return true;
         }
 
         /// <summary>
@@ -206,6 +325,7 @@ namespace XRScan.Core
             {
                 case SettingId.LlmModel: return CycleModel(direction);
                 case SettingId.SpeechProvider: return ToggleProvider();
+                case SettingId.ReportReply: return CycleReason(direction);
                 default: return null;
             }
         }
@@ -218,6 +338,7 @@ namespace XRScan.Core
                 case SettingId.LlmModel: return CycleModel(1);
                 case SettingId.SpeechProvider: return ToggleProvider();
                 case SettingId.CloudOptIn: return ActivateCloudOptIn();
+                case SettingId.ReportReply: return ActivateReport();
                 case SettingId.ResetAll:
                     ResetAll();
                     return "All in-headset changes were removed." + " Restart the app to apply them everywhere.";
@@ -225,14 +346,88 @@ namespace XRScan.Core
             }
         }
 
-        /// <summary>Cancels a pending (unconfirmed) cloud opt-in, e.g. when the selection moves away.</summary>
-        public void CancelPending() => CloudOptInPending = false;
+        /// <summary>
+        /// Cancels a pending (unconfirmed) cloud opt-in or report, e.g. when the selection moves away. A reply hidden
+        /// for a report stays hidden.
+        /// </summary>
+        public void CancelPending()
+        {
+            CloudOptInPending = false;
+            _reportedReply = null;
+        }
 
         /// <summary>Removes every override written by the panel.</summary>
         public void ResetAll()
         {
             ConfigOverrides.ClearOverrides(OverrideKeys);
-            CloudOptInPending = false;
+            CancelPending();
+        }
+
+        /// <summary>
+        /// The Report control. The first press hides the latest AI reply at once (it stops being spoken) and shows
+        /// what a report sends and where; left / right picks the reason; a second press sends it through
+        /// <see cref="SendReport"/>.
+        /// </summary>
+        private SettingRow ReportRow()
+        {
+            const string label = "Report last reply";
+            if (_reportedReply != null)
+            {
+                var report = BuildReport(_reportedReply);
+                string detail = report.Channel == ReplyReportChannel.Unavailable
+                    ? "It cannot be sent: " + report.Error
+                    : "Sends " + ReplyReporting.Contents + " (model " + _reportedReply.Model + ", version " + AppVersion +
+                      ") to " + report.Recipient + ". Left / right: reason. A: send. B: cancel.";
+                return new SettingRow(SettingId.ReportReply, SettingKind.Choice, label, "reason: " + ReportReason, detail, true);
+            }
+
+            var reply = AiReplies.Last;
+            if (reply == null)
+            {
+                return new SettingRow(SettingId.ReportReply, SettingKind.Action, label, "no reply yet",
+                    "After the companion answers, report an offensive, harmful or wrong answer here.", false);
+            }
+
+            return new SettingRow(SettingId.ReportReply, SettingKind.Action, label,
+                reply.Hidden ? "hidden" : Excerpt(reply.Reply),
+                "A: hide this reply, then report it to Companion Intelligence.", false);
+        }
+
+        private string ActivateReport()
+        {
+            if (_reportedReply == null)
+            {
+                var reply = AiReplies.Last;
+                if (reply == null) return "There is no reply to report yet.";
+
+                AiReplies.Hide(reply);
+                _reportedReply = reply;
+                _reasonIndex = 0;
+                return "Reply hidden. Pick a reason with left / right, then press A again to send the report.";
+            }
+
+            var report = BuildReport(_reportedReply);
+            _reportedReply = null;
+            if (report.Channel == ReplyReportChannel.Unavailable) return "The report could not be sent: " + report.Error;
+            return SendReport != null ? SendReport(report) : "Reports cannot be sent from here.";
+        }
+
+        private string CycleReason(int direction)
+        {
+            if (_reportedReply == null) return null;
+            int count = ReplyReporting.Reasons.Count;
+            _reasonIndex = ((_reasonIndex + (direction >= 0 ? 1 : -1)) % count + count) % count;
+            return "Reason: " + ReportReason;
+        }
+
+        private ReplyReport BuildReport(AiReply reply) =>
+            ReplyReporting.Build(reply, ReportReason, AppVersion, _config.ResolveReplyReportDestination(),
+                _isDevelopmentBuild, _devAllowlist);
+
+        private static string Excerpt(string text)
+        {
+            string flat = (text ?? string.Empty).Replace('\n', ' ').Replace('\r', ' ').Trim();
+            return "\"" + (flat.Length <= 40 ? flat : flat.Substring(0, 40).TrimEnd() + "...") + "\"";
         }
 
         public static string PrefsKeyFor(SettingId id)
@@ -332,6 +527,30 @@ namespace XRScan.Core
 
             return new SettingRow(SettingId.CloudOptIn, SettingKind.Toggle, "Cloud speech opt-in", "off",
                 "Speech is never sent to a third-party cloud.", false);
+        }
+
+        /// <summary>
+        /// The reply safety check (read-only): the safety model on the LLM server and how the latest check went. When the
+        /// check could not run, replies are withheld and the companion says to look here, so the row names the model and
+        /// the reason.
+        /// </summary>
+        private static SettingRow ReplyCheckRow(LlmConfig llm)
+        {
+            const string label = "Reply safety check";
+            string model = llm.SafetyModel;
+            var last = ReplySafety.Last;
+            if (last != null && last.Verdict == ReplyVerdict.Unavailable)
+            {
+                return new SettingRow(SettingId.ReplyCheck, SettingKind.Info, label, model,
+                    "Not working, so replies are withheld: " + last.Reason, true);
+            }
+
+            string detail = last == null
+                ? "Checks every reply on the LLM server before it is spoken; without it, replies are withheld."
+                : last.Verdict == ReplyVerdict.Blocked
+                    ? "Working. The last reply was withheld."
+                    : "Working. The last reply passed.";
+            return new SettingRow(SettingId.ReplyCheck, SettingKind.Info, label, model, detail, false);
         }
 
         private SettingRow EndpointRow(SettingId id, string label, EndpointCheck check)

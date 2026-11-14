@@ -2,7 +2,12 @@ using UnityEngine;
 
 namespace XRScan.Core
 {
-    /// <summary>Pixel &lt;-&gt; normalized bounding-box conversion, tolerant of already-normalized input.</summary>
+    /// <summary>
+    /// Bounding-box conversion for the CV server's box contract (cv-server README, "Boxes"): each box is
+    /// [x1, y1, x2, y2], the top-left then the bottom-right corner, as fractions (0-1) of the width and height
+    /// of the image that was sent, with the origin at the image's top-left corner and y pointing down.
+    /// Pixel boxes from older servers are still accepted when the image size is known.
+    /// </summary>
     public static class BoundingBoxUtils
     {
         public static bool TryNormalize(float[] bbox, int imageWidth, int imageHeight, out Rect normalized)
@@ -52,6 +57,17 @@ namespace XRScan.Core
             normalized = new Rect(minX, minY, width, height);
             return true;
         }
+
+        /// <summary>
+        /// The centre of a normalized box as a viewport point. The box's origin is the image's top-left corner;
+        /// a Unity viewport's is the bottom-left, so y is flipped.
+        /// </summary>
+        public static Vector2 CenterInViewport(Rect normalized) =>
+            new Vector2(normalized.center.x, 1f - normalized.center.y);
+
+        /// <summary>The centre of a normalized box in pixels of the image (origin top-left, y down).</summary>
+        public static Vector2 CenterInPixels(Rect normalized, int imageWidth, int imageHeight) =>
+            new Vector2(normalized.center.x * imageWidth, normalized.center.y * imageHeight);
 
         public static Rect NormalizedToPixels(Rect normalized, int imageWidth, int imageHeight)
         {

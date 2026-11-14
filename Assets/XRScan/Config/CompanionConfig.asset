@@ -21,3 +21,4 @@ MonoBehaviour:
   - llama3.2-vision:11b
   - qwen2.5vl:7b
   openSettingsWhenUnconfigured: 1
+  replyReportDestination: mailto:support@companionintelligence.com

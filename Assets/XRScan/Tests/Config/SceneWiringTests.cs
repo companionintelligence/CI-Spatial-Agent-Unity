@@ -51,6 +51,8 @@ namespace XRScan.Tests.Config
             Assert.IsInstanceOf<ServerConfig>(Field(bootstrap, "serverConfig"));
             Assert.AreEqual("PermissionGatedSpeechToText", Field(bootstrap, "sttBehaviour").GetType().Name);
             Assert.AreEqual("OllamaBackend", Field(bootstrap, "llmBehaviour").GetType().Name);
+            Assert.IsInstanceOf<IReplyChecker>(Field(bootstrap, "llmBehaviour"),
+                "the LLM backend brings the reply check (Granite Guardian on the same server); without one every reply is withheld");
             Assert.AreEqual("CloudTts", Field(bootstrap, "ttsBehaviour").GetType().Name);
 
             var gate = (PermissionGatedSpeechToText)Field(bootstrap, "sttBehaviour");
@@ -72,6 +74,15 @@ namespace XRScan.Tests.Config
             Assert.IsNotNull(panel);
             Assert.AreSame(companion, Field(panel, "config"));
             Assert.IsNotNull(FindBehaviour(_scene, nameof(RuntimePermissions)));
+
+            var scan = FindBehaviour(_scene, "ScanController");
+            Assert.IsNotNull(scan);
+            using (var serialized = new SerializedObject(scan))
+            {
+                string prompt = serialized.FindProperty("detectionPrompt").stringValue.Trim();
+                Assert.AreNotEqual("object", prompt, "a one-word prompt labels every box 'object'");
+                Assert.GreaterOrEqual(prompt.Split('.').Length, 10, "the vision server is asked for named objects");
+            }
         }
 
         [Test]

@@ -1,7 +1,11 @@
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using XRScan.Core;
+using XRScan.Settings;
 
 namespace XRScan.Tests.Config
 {
@@ -28,6 +32,7 @@ namespace XRScan.Tests.Config
         [TearDown]
         public void TearDown()
         {
+            ReplySafety.Clear();
             Object.DestroyImmediate(_companion.llm);
             Object.DestroyImmediate(_companion.voice);
             Object.DestroyImmediate(_companion.server);
@@ -153,6 +158,170 @@ namespace XRScan.Tests.Config
             Assert.IsTrue(rows.Single(r => r.Id == SettingId.SpeechServer).IsWarning);
             Assert.AreEqual("off", rows.Single(r => r.Id == SettingId.CloudOptIn).Value);
             StringAssert.Contains("https only", rows.Single(r => r.Id == SettingId.DevCleartextHosts).Detail);
+        }
+
+        [Test]
+        public void VisionToken_IsStoredAsAnOverride_AndTheRowNeverShowsIt()
+        {
+            var model = Release();
+            var before = model.BuildRows().Single(r => r.Id == SettingId.CvToken);
+            Assert.AreEqual(SettingKind.Secret, before.Kind);
+            Assert.AreEqual(CompanionSettingsModel.NotSet, before.Value);
+            Assert.IsTrue(before.IsWarning);
+
+            const string token = "Zx81-test_token.value~42";
+            Assert.IsTrue(model.TrySetSecret(SettingId.CvToken, "  " + token + " ", out var message), message);
+            StringAssert.DoesNotContain(token, message);
+            Assert.AreEqual(token, _sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
+            Assert.AreEqual(token, _companion.server.ResolveApiToken());
+            Assert.AreEqual(string.Empty, model.GetEditableText(SettingId.CvToken), "editing starts empty, never from the stored token");
+
+            var after = model.BuildRows().Single(r => r.Id == SettingId.CvToken);
+            Assert.AreEqual("set", after.Value);
+            Assert.IsFalse(after.IsWarning);
+            foreach (var row in model.BuildRows())
+            {
+                StringAssert.DoesNotContain(token, row.Value + row.Detail);
+            }
+        }
+
+        [Test]
+        public void VisionToken_TextWithSpacesIsRefused()
+        {
+            var model = Release();
+            Assert.IsFalse(model.TrySetSecret(SettingId.CvToken, "two words", out _));
+            Assert.IsNull(_sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
+            Assert.IsFalse(model.TrySetSecret(SettingId.CvServer, "abc", out _), "only secret rows take secrets");
+        }
+
+        [TestCase("")]
+        [TestCase("   ")]
+        [TestCase(null)]
+        public void VisionToken_AnEmptySubmitKeepsTheStoredToken(string typed)
+        {
+            var model = Release();
+            Assert.IsTrue(model.TrySetSecret(SettingId.CvToken, "abc123", out _));
+
+            Assert.IsTrue(model.TrySetSecret(SettingId.CvToken, typed, out var message));
+            Assert.AreEqual("abc123", _sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
+            Assert.IsTrue(_companion.server.HasApiToken);
+            StringAssert.Contains("unchanged", message);
+            StringAssert.Contains("Reset to defaults", message, "how to remove it instead");
+            StringAssert.DoesNotContain("abc123", message);
+
+            model.Activate(SettingId.ResetAll);
+            Assert.IsFalse(_companion.server.HasApiToken, "Reset to defaults removes it");
+        }
+
+        [Test]
+        public void SecretRows_OpenTheKeyboardSecure_WithAnEmptyBuffer()
+        {
+            var model = Release();
+            model.TrySetSecret(SettingId.CvToken, "Zx81-stored-token", out _);
+            model.TrySetEndpoint(SettingId.LlmEndpoint, "https://llm.example.lan", out _);
+
+            Assert.IsTrue(CompanionSettingsModel.IsSecret(SettingId.CvToken));
+            var token = model.BeginTextEntry(SettingId.CvToken);
+            Assert.IsTrue(token.Secure, "the system keyboard hides what is typed");
+            Assert.AreEqual(string.Empty, token.InitialText, "the stored token never reaches the keyboard");
+            Assert.IsFalse(token.Url);
+
+            Assert.IsFalse(CompanionSettingsModel.IsSecret(SettingId.LlmEndpoint));
+            var endpoint = model.BeginTextEntry(SettingId.LlmEndpoint);
+            Assert.IsFalse(endpoint.Secure);
+            Assert.IsTrue(endpoint.Url);
+            Assert.AreEqual("https://llm.example.lan", endpoint.InitialText, "an address is edited from its current value");
+        }
+
+        [Test]
+        public void ThePanel_OpensTheSystemKeyboardAsTheModelSays()
+        {
+            string panel = File.ReadAllText(Path.Combine(Application.dataPath, "XRScan", "Settings", "CompanionSettingsPanel.cs"));
+            Assert.AreEqual(1, Regex.Matches(panel, @"TouchScreenKeyboard\.Open\(").Count, "one place opens the keyboard");
+            StringAssert.IsMatch(
+                @"TouchScreenKeyboard\.Open\(entry\.InitialText,\s*entry\.Url \? TouchScreenKeyboardType\.URL : TouchScreenKeyboardType\.Default,\s*false, false, entry\.Secure, false, entry\.Placeholder\)",
+                panel, "TouchScreenKeyboard.Open(text, type, autocorrection, multiline, secure, alert, placeholder)");
+        }
+
+        [Test]
+        public void ThePanel_EditsASecretFromAnEmptyBuffer_AndAnEmptySubmitKeepsIt()
+        {
+            _sandbox.Store.SetString(ServerConfig.PlayerPrefsApiTokenKey, "Zx81-stored-token");
+            var go = new GameObject("settings");
+            try
+            {
+                var panel = go.AddComponent<CompanionSettingsPanel>();
+                panel.Configure(_companion, null);
+                const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+                typeof(CompanionSettingsPanel).GetMethod("BeginEdit", Private).Invoke(panel, new object[] { SettingId.CvToken });
+                Assert.AreEqual(string.Empty, typeof(CompanionSettingsPanel).GetField("_editBuffer", Private).GetValue(panel));
+
+                typeof(CompanionSettingsPanel).GetMethod("CommitEdit", Private).Invoke(panel, null);
+                Assert.AreEqual("Zx81-stored-token", _sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void TheReplyCheckRow_NamesTheSafetyModel_AndWhyRepliesAreWithheld()
+        {
+            var row = Release().BuildRows().Single(r => r.Id == SettingId.ReplyCheck);
+            Assert.AreEqual(SettingKind.Info, row.Kind, "read-only: nothing in the panel turns the check off");
+            Assert.AreEqual("granite3-guardian:2b", row.Value);
+            Assert.IsFalse(row.IsWarning);
+
+            ReplySafety.Record(ReplyCheckResult.Unavailable(
+                "granite3-guardian:2b is not installed on the LLM server. Install it there: ollama pull granite3-guardian:2b"));
+            row = Release().BuildRows().Single(r => r.Id == SettingId.ReplyCheck);
+            Assert.IsTrue(row.IsWarning);
+            StringAssert.Contains("withheld", row.Detail);
+            StringAssert.Contains("ollama pull granite3-guardian:2b", row.Detail);
+
+            ReplySafety.Record(ReplyCheckResult.Safe());
+            Assert.IsFalse(Release().BuildRows().Single(r => r.Id == SettingId.ReplyCheck).IsWarning);
+        }
+
+        [Test]
+        public void TheReplyCheck_HasAModelAndATimeout_AndNoOffSwitch()
+        {
+            var llm = _companion.llm;
+            Assert.AreEqual(LlmConfig.DefaultSafetyModel, llm.SafetyModel);
+            Assert.AreEqual(20f, llm.SafetyCheckTimeoutSeconds);
+
+            llm.safetyModel = "  ";
+            Assert.AreEqual(LlmConfig.DefaultSafetyModel, llm.SafetyModel, "blank means the default model, not no check");
+            llm.safetyModel = "granite3-guardian:8b";
+            Assert.AreEqual("granite3-guardian:8b", llm.SafetyModel);
+            _sandbox.Environment[LlmConfig.EnvSafetyModelKey] = "granite4.1-guardian:8b";
+            Assert.AreEqual("granite4.1-guardian:8b", llm.SafetyModel);
+
+            llm.safetyCheckTimeoutSeconds = 0f;
+            Assert.AreEqual(ReplySafety.MinTimeoutSeconds, llm.SafetyCheckTimeoutSeconds);
+            llm.safetyCheckTimeoutSeconds = 1e6f;
+            Assert.AreEqual(ReplySafety.MaxTimeoutSeconds, llm.SafetyCheckTimeoutSeconds);
+            llm.safetyCheckTimeoutSeconds = float.NaN;
+            Assert.AreEqual(ReplySafety.MinTimeoutSeconds, llm.SafetyCheckTimeoutSeconds);
+
+            foreach (var type in new[] { typeof(LlmConfig), typeof(CompanionConfig) })
+            {
+                var switches = type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                    .Where(f => f.FieldType == typeof(bool) && (f.IsPublic || f.GetCustomAttribute<SerializeField>() != null))
+                    .Select(f => f.Name)
+                    .Where(n => Regex.IsMatch(n, "safety|check|guard|filter|moderat", RegexOptions.IgnoreCase));
+                CollectionAssert.IsEmpty(switches, type.Name + " must have no setting that turns the reply check off");
+            }
+        }
+
+        [Test]
+        public void ResetAll_AlsoForgetsTheVisionToken()
+        {
+            var model = Release();
+            model.TrySetSecret(SettingId.CvToken, "abc", out _);
+            model.Activate(SettingId.ResetAll);
+            Assert.IsNull(_sandbox.Store.GetString(ServerConfig.PlayerPrefsApiTokenKey));
         }
     }
 }

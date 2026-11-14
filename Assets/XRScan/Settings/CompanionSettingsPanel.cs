@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Networking;
 using UnityEngine.UI;
 using XRScan.Core;
 
@@ -17,6 +18,9 @@ namespace XRScan.Settings
     /// <b>B / Y</b> (Esc) closes or cancels. Endpoint fields open the system keyboard on the headset, or take text
     /// from a physical keyboard. The panel is built at runtime (world-space uGUI), so the scene only needs this
     /// component. It opens by itself at start-up while the LLM or speech server is not configured yet.</para>
+    /// <para>It also carries the AI disclosure (<see cref="AiDisclosure"/>): a notice at first launch, before
+    /// anything else and whatever the server settings are, closed with A / Enter, and the same line at the top of
+    /// the panel whenever it is open.</para>
     /// </summary>
     public class CompanionSettingsPanel : MonoBehaviour
     {
@@ -75,19 +79,27 @@ namespace XRScan.Settings
         private Font _font;
         private RectTransform _panel;
         private RectTransform _toast;
+        private RectTransform _aiNotice;
         private Text _body;
         private Text _footer;
         private Text _toastText;
+        private Text _aiNoticeText;
+        private bool _aiNoticeOpen;
 
         public bool IsOpen => _open;
+
+        /// <summary>True while the first-launch AI notice is shown.</summary>
+        public bool IsAiNoticeOpen => _aiNoticeOpen;
 
         /// <summary>Code-side wiring (the scene normally sets these).</summary>
         public void Configure(CompanionConfig companionConfig, RuntimePermissions runtimePermissions)
         {
             config = companionConfig;
             permissions = runtimePermissions;
-            _model = config != null ? new CompanionSettingsModel(config) : null;
+            _model = config != null ? CreateModel() : null;
         }
+
+        private CompanionSettingsModel CreateModel() => new CompanionSettingsModel(config) { SendReport = SendReport };
 
         private void Awake()
         {
@@ -118,11 +130,15 @@ namespace XRScan.Settings
             _submit?.Enable();
             _back?.Enable();
             RuntimePermissions.Notice += ShowNotice;
+            UserNotices.Posted += ShowNotice;
+            ReplySafety.Changed += RefreshIfOpen;
         }
 
         private void OnDisable()
         {
             RuntimePermissions.Notice -= ShowNotice;
+            UserNotices.Posted -= ShowNotice;
+            ReplySafety.Changed -= RefreshIfOpen;
             if (_open) Close();
             EndEdit();
             _toggle?.Disable();
@@ -148,11 +164,19 @@ namespace XRScan.Settings
                 yield break;
             }
 
-            if (_model == null) _model = new CompanionSettingsModel(config);
-            if (!config.openSettingsWhenUnconfigured) yield break;
+            if (_model == null) _model = CreateModel();
 
-            // Give head tracking a moment so the panel appears in front of the user.
+            // Give head tracking a moment so the notice and the panel appear in front of the user.
             yield return new WaitForSecondsRealtime(autoOpenDelaySeconds);
+
+            // The AI notice comes first and does not look at the server settings.
+            if (AiDisclosure.NoticeNeeded)
+            {
+                ShowAiNotice();
+                while (_aiNoticeOpen) yield return null;
+            }
+
+            if (!config.openSettingsWhenUnconfigured) yield break;
             if (!_open && config.NeedsSetup())
             {
                 Open();
@@ -162,18 +186,12 @@ namespace XRScan.Settings
 
         public void Open()
         {
-            if (_model == null) return;
+            if (_model == null || _aiNoticeOpen) return;
             EnsureUi();
             _open = true;
             _panel.gameObject.SetActive(true);
             PlaceInFront(_panel, distance, -0.05f);
-
-            foreach (var behaviour in disableWhileOpen)
-            {
-                if (behaviour == null || _suspended.ContainsKey(behaviour)) continue;
-                _suspended[behaviour] = behaviour.enabled;
-                behaviour.enabled = false;
-            }
+            SuspendInput();
             Refresh();
         }
 
@@ -183,7 +201,44 @@ namespace XRScan.Settings
             _model?.CancelPending();
             _open = false;
             if (_panel != null) _panel.gameObject.SetActive(false);
+            ResumeInput();
+        }
 
+        /// <summary>Shows the AI notice in front of the user until A / Enter closes it; scanning and talking wait.</summary>
+        public void ShowAiNotice()
+        {
+            if (_open) Close();
+            EnsureUi();
+            _aiNoticeText.text = "<b>" + Clean(AiDisclosure.Line) + "</b>\n\n<size=22><color=#9aa4b2>A / Enter: OK</color></size>";
+            _aiNotice.gameObject.SetActive(true);
+            PlaceInFront(_aiNotice, distance, -0.05f);
+            _aiNoticeOpen = true;
+            SuspendInput();
+        }
+
+        /// <summary>Closes the AI notice and records that the user has seen it, so it shows only once.</summary>
+        public void AcknowledgeAiNotice()
+        {
+            if (!_aiNoticeOpen) return;
+            AiDisclosure.Acknowledge();
+            _aiNoticeOpen = false;
+            if (_aiNotice != null) _aiNotice.gameObject.SetActive(false);
+            ResumeInput();
+        }
+
+        private void SuspendInput()
+        {
+            foreach (var behaviour in disableWhileOpen)
+            {
+                if (behaviour == null || _suspended.ContainsKey(behaviour)) continue;
+                _suspended[behaviour] = behaviour.enabled;
+                behaviour.enabled = false;
+            }
+        }
+
+        private void ResumeInput()
+        {
+            if (_open || _aiNoticeOpen) return;
             foreach (var pair in _suspended)
             {
                 if (pair.Key != null) pair.Key.enabled = pair.Value;
@@ -213,7 +268,17 @@ namespace XRScan.Settings
         {
             if (_model == null) return;
 
-            if (_editing) UpdateEditing();
+            if (_aiNoticeOpen)
+            {
+                var keys = Keyboard.current;
+                if (_submit.WasPressedThisFrame() ||
+                    (keys != null && (keys.enterKey.wasPressedThisFrame || keys.numpadEnterKey.wasPressedThisFrame)))
+                {
+                    AcknowledgeAiNotice();
+                }
+                else FollowHead(_aiNotice, distance, -0.05f);
+            }
+            else if (_editing) UpdateEditing();
             else if (_toggle.WasPressedThisFrame())
             {
                 if (_open) Close();
@@ -323,6 +388,7 @@ namespace XRScan.Settings
             switch (setting.Kind)
             {
                 case SettingKind.Endpoint:
+                case SettingKind.Secret:
                     BeginEdit(setting.Id);
                     return;
                 case SettingKind.Info:
@@ -334,16 +400,22 @@ namespace XRScan.Settings
             }
         }
 
+        /// <summary>
+        /// Opens the editor for a row as the model describes it (<see cref="CompanionSettingsModel.BeginTextEntry"/>): a
+        /// secret opens the system keyboard in secure mode with an empty buffer, so the stored token is never shown.
+        /// </summary>
         private void BeginEdit(SettingId id)
         {
+            var entry = _model.BeginTextEntry(id);
             _editing = true;
             _editId = id;
-            _editBuffer = _model.GetEditableText(id) ?? string.Empty;
+            _editBuffer = entry.InitialText;
 
             if (TouchScreenKeyboard.isSupported)
             {
-                _systemKeyboard = TouchScreenKeyboard.Open(_editBuffer, TouchScreenKeyboardType.URL, false, false, false, false,
-                    "https://host:port");
+                _systemKeyboard = TouchScreenKeyboard.Open(entry.InitialText,
+                    entry.Url ? TouchScreenKeyboardType.URL : TouchScreenKeyboardType.Default,
+                    false, false, entry.Secure, false, entry.Placeholder);
             }
 
             _typingKeyboard = Keyboard.current;
@@ -412,12 +484,16 @@ namespace XRScan.Settings
             Refresh();
         }
 
+        private static bool IsSecret(SettingId id) => CompanionSettingsModel.IsSecret(id);
+
         private void CommitEdit()
         {
             string text = _editBuffer;
             var id = _editId;
             EndEdit();
-            _model.TrySetEndpoint(id, text, out string message);
+            string message;
+            if (IsSecret(id)) _model.TrySetSecret(id, text, out message);
+            else _model.TrySetEndpoint(id, text, out message);
             ShowNotice(message);
             Refresh();
         }
@@ -443,6 +519,12 @@ namespace XRScan.Settings
                 _typingKeyboard.onTextInput -= OnTextInput;
                 _typingKeyboard = null;
             }
+        }
+
+        /// <summary>Shows the latest reply-check outcome while the panel is open (not while a value is being typed).</summary>
+        private void RefreshIfOpen()
+        {
+            if (_open && !_editing) Refresh();
         }
 
         private PanelRow SelectedRow() => _selected >= 0 && _selected < _rows.Count ? _rows[_selected] : null;
@@ -482,6 +564,38 @@ namespace XRScan.Settings
             if (_open) Render();
         }
 
+        /// <summary>Sends a confirmed report: an email the user's mail app opens filled in, or an HTTPS POST.</summary>
+        private string SendReport(ReplyReport report)
+        {
+            switch (report.Channel)
+            {
+                case ReplyReportChannel.Email:
+                    Application.OpenURL(report.MailtoUri);
+                    return "Your email app opens with the report filled in; send it from there. If none opens, write to " +
+                           report.Recipient + ".";
+                case ReplyReportChannel.Https:
+                    StartCoroutine(PostReport(report));
+                    return "Sending the report to " + report.Recipient + "...";
+                default:
+                    return "The report could not be sent: " + report.Error;
+            }
+        }
+
+        private IEnumerator PostReport(ReplyReport report)
+        {
+            using var request = new UnityWebRequest(report.CheckedUrl, "POST");
+            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(report.Json));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            request.timeout = 15;
+            yield return request.SendWebRequest();
+
+            ShowNotice(request.result == UnityWebRequest.Result.Success
+                ? "Report sent. Thank you."
+                : "The report could not be sent (" + (request.responseCode > 0 ? request.responseCode.ToString() : request.error) +
+                  "). You can write to " + ReplyReporting.SupportAddress + " instead.");
+        }
+
         private bool AnyPermissionMissing()
         {
             foreach (var permission in new[] { AppPermissions.Microphone, AppPermissions.HeadsetCamera, AppPermissions.SpatialData })
@@ -500,14 +614,15 @@ namespace XRScan.Settings
             var sb = new StringBuilder(2048);
             sb.Append("<b>Companion settings</b>   <size=20><color=#9aa4b2>")
               .Append(_model.IsDevelopmentBuild ? "development build" : "release build")
-              .Append(" - changes are saved on this headset</color></size>\n\n");
+              .Append(" - changes are saved on this headset</color></size>\n")
+              .Append("<size=24><color=#c8d0da>").Append(Clean(AiDisclosure.Line)).Append("</color></size>\n\n");
 
             for (int i = 0; i < _rows.Count; i++)
             {
                 var row = _rows[i];
                 bool selected = i == _selected;
                 string value = selected && _editing
-                    ? Clean(_editBuffer) + "<color=#ffd54a>_</color>"
+                    ? (IsSecret(_editId) ? new string('*', _editBuffer.Length) : Clean(_editBuffer)) + "<color=#ffd54a>_</color>"
                     : Clean(row.Value);
 
                 sb.Append(selected ? "<color=#ffd54a>> " : "<color=#e8eaed>   ").Append(Clean(row.Label));
@@ -524,7 +639,9 @@ namespace XRScan.Settings
             _body.text = sb.ToString();
 
             string help = _editing
-                ? "Type the address. A / Enter: save   B / Esc: cancel   (empty = use the default)"
+                ? (IsSecret(_editId)
+                    ? "Type the token (hidden). A / Enter: save   B / Esc: cancel   (empty = keep the stored token)"
+                    : "Type the address. A / Enter: save   B / Esc: cancel   (empty = use the default)")
                 : "Thumbstick: select / change   A: edit or toggle   B or menu: close";
             _noticeRendered = HasNotice();
             _footer.text = (_noticeRendered ? "<color=#ffd54a>" + Clean(_notice) + "</color>\n" : string.Empty) +
@@ -553,7 +670,7 @@ namespace XRScan.Settings
             if (_panel != null) return;
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-            _panel = CreateCanvas("SettingsPanelCanvas", new Vector2(1100f, 920f));
+            _panel = CreateCanvas("SettingsPanelCanvas", new Vector2(1100f, 1040f));
             _body = CreateText(_panel, "Body", 28, TextAnchor.UpperLeft, new Vector2(0f, 0.2f), Vector2.one, 36f);
             _footer = CreateText(_panel, "Footer", 24, TextAnchor.LowerLeft, Vector2.zero, new Vector2(1f, 0.2f), 36f);
             _panel.gameObject.SetActive(false);
@@ -561,6 +678,10 @@ namespace XRScan.Settings
             _toast = CreateCanvas("SettingsNoticeCanvas", new Vector2(1100f, 160f));
             _toastText = CreateText(_toast, "Notice", 26, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, 24f);
             _toast.gameObject.SetActive(false);
+
+            _aiNotice = CreateCanvas("AiNoticeCanvas", new Vector2(1000f, 320f));
+            _aiNoticeText = CreateText(_aiNotice, "Notice", 32, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, 48f);
+            _aiNotice.gameObject.SetActive(false);
         }
 
         private RectTransform CreateCanvas(string objectName, Vector2 size)

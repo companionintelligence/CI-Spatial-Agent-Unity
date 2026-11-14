@@ -53,12 +53,56 @@ namespace XRScan.Core
         /// </summary>
         public string model => ConfigOverrides.Resolve(PlayerPrefsModelKey, EnvModelKey, defaultModel, out _);
 
+        [Tooltip("The companion's persona. Every request sends the fixed SafetyPrompt first and this after it, together as " +
+                 "the model's system message (BuildSystemMessage); emptying this field never drops the safety prompt.")]
         [TextArea]
         public string systemPrompt = "You are a helpful spatial companion embodied in the user's room. Answer briefly about the room and the objects you can see.";
+
+        /// <summary>
+        /// The system message of every request: the fixed <see cref="SafetyPrompt.Text"/>, then <see cref="systemPrompt"/>.
+        /// </summary>
+        public string BuildSystemMessage() =>
+            string.IsNullOrWhiteSpace(systemPrompt) ? SafetyPrompt.Text : SafetyPrompt.Text + "\n\n" + systemPrompt.Trim();
 
         public int maxTokens = 300;
         public float temperature = 0.7f;
         public float requestTimeoutSeconds = 30f;
+
+        /// <summary>
+        /// The reply check's model: IBM Granite Guardian 3.0 2B (Apache-2.0), the smallest Granite Guardian in the Ollama
+        /// library (https://ollama.com/library/granite3-guardian, tags 2b = latest, 2.7 GB, and 8b; model card
+        /// https://huggingface.co/ibm-granite/granite-guardian-3.0-2b). See tools/reply-check/README.md.
+        /// </summary>
+        public const string DefaultSafetyModel = "granite3-guardian:2b";
+
+        /// <summary>Environment variable that names another safety model (Editor, desktop and CI runs).</summary>
+        public const string EnvSafetyModelKey = "XRSCAN_SAFETY_MODEL";
+
+        public const float DefaultSafetyCheckTimeoutSeconds = 20f;
+
+        [Header("Reply safety check")]
+        [Tooltip("The model that checks every reply before it is shown or spoken, on the same Ollama server as the language " +
+                 "model (pull it there: ollama pull " + DefaultSafetyModel + "). A reply it flags, or that it cannot judge " +
+                 "(missing model, error, timeout), is withheld. Blank means the default; there is no setting that turns the " +
+                 "check off. Env " + EnvSafetyModelKey + " overrides it on desktop.")]
+        public string safetyModel = DefaultSafetyModel;
+
+        [Tooltip("Seconds the check of one reply may take (all its requests together) before the reply is withheld. " +
+                 "Clamped to 1..120.")]
+        public float safetyCheckTimeoutSeconds = DefaultSafetyCheckTimeoutSeconds;
+
+        /// <summary>The effective safety model: the environment, then the asset, then <see cref="DefaultSafetyModel"/>.</summary>
+        public string SafetyModel
+        {
+            get
+            {
+                string value = ConfigOverrides.Resolve(null, EnvSafetyModelKey, safetyModel, out _);
+                return string.IsNullOrWhiteSpace(value) ? DefaultSafetyModel : value.Trim();
+            }
+        }
+
+        /// <summary>The effective timeout of one reply check, in seconds.</summary>
+        public float SafetyCheckTimeoutSeconds => ReplySafety.ClampTimeout(safetyCheckTimeoutSeconds);
 
         /// <summary>Effective endpoint under the current build type and allowlist.</summary>
         public EndpointCheck ResolveEndpoint() =>

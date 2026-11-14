@@ -55,6 +55,9 @@ crashlytics-build.properties
 # Verification screenshots (not project assets)
 [Aa]ssets/[Ss]creenshots/
 
+# Results of tools/reply-check/run_reply_check.py: they belong with the release records, not in the repository
+reply-check-*.json
+
 # OS
 .DS_Store
 Thumbs.db

@@ -33,6 +33,8 @@ namespace XRScan.Tests.Config
             { "Export/GltfSyncClient.cs", "_config.ResolveBaseUrl()" },
             { "Voice/CloudTts.cs", "new UnityWebRequest(config.ttsEndpoint" },
             { "Voice/CloudWhisperStt.cs", "UnityWebRequest.Post(config.sttEndpoint" },
+            // ReplyReport.CheckedUrl is set only from CleartextPolicy.Evaluate (ReplyReporting.Build).
+            { "Settings/CompanionSettingsPanel.cs", "new UnityWebRequest(report.CheckedUrl, \"POST\")" },
         };
 
         private static readonly Regex RequestFactory = new Regex(

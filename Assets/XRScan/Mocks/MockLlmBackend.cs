@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
@@ -6,8 +7,11 @@ using XRScan.Core;
 namespace XRScan.Mocks
 {
     /// <summary>Scripted LLM backend for the in-Editor conversation loop: replies after a short
-    /// delay with an answer loosely grounded in the (scene-context-bearing) prompt.</summary>
-    public class MockLlmBackend : MonoBehaviour, ILlmBackend
+    /// delay with an answer loosely grounded in the (scene-context-bearing) prompt. Its reply check passes its own
+    /// replies, which are fixed text written below rather than model output; the on-device rules still run
+    /// (<see cref="ReplyGate"/>). Like every mock it lives only in the development scene: ReleaseMockGuard fails a release
+    /// build of a scene that contains it.</summary>
+    public class MockLlmBackend : MonoBehaviour, ILlmBackend, IReplyChecker
     {
         [SerializeField] private float thinkSeconds = 0.4f;
         private bool _processing;
@@ -20,6 +24,11 @@ namespace XRScan.Mocks
         public bool IsConnected => true;
         public bool IsProcessing => _processing;
         public string ServerAddress => "mock";
+        public string ModelName => "mock";
+
+        public string CheckerName => "mock (development scene)";
+        public float TimeoutSeconds => 5f;
+        public void Check(string question, string reply, Action<ReplyCheckResult> done) => done?.Invoke(ReplyCheckResult.Safe());
 
         public void Initialize() { }
         public void SendTextRequest(string prompt) => StartCoroutine(Reply(prompt));

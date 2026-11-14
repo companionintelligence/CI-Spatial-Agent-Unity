@@ -142,7 +142,7 @@ Unity packs every installed package's runtime assemblies, native and Java plugin
 | `XRScanVendorPackageGuard` (`IPreprocessBuildWithReport`) | fails the build while the PICO SDK or a PICO-generated file is in the project, e.g. a build started from the Build Profiles window while the SDK is installed | — |
 | `XRScanPlayerAssemblyFilter` (`IFilterBuildAssemblies`) | second line of defence: drops PICO and MCP for Unity assemblies if they are present | drops MCP for Unity's `MCPForUnity.Runtime` if present |
 | `XRScanNativeLibExcluder` (Gradle post-process) | excludes PICO's `.so` (`libPICO_TOBAPI`, `libpvrcapturelib`, `libpxrplatformloader`, `libCameraRenderingPlugin`, `libopenxr_pico`) and `libUnityMockHMD.so`; deletes PICO's `.aar` / `.jar` plugins if present | excludes Meta's `libUnityARFoundationMeta.so` and `libUnityMockHMD.so` |
-| `XRScanManifestPostProcessor` | adds `RECORD_AUDIO`; removes PICO's `com.pvr.tobactivate.permission.AUTH_CHECK` | adds `RECORD_AUDIO` |
+| `XRScanManifestPostProcessor` | adds `RECORD_AUDIO`; removes PICO's `com.pvr.tobactivate.permission.AUTH_CHECK`, and `BLUETOOTH` and `MODIFY_AUDIO_SETTINGS`; in the launcher manifest sets `installLocation` `auto` and `com.oculus.supportedDevices` `quest3\|quest3s` (`QuestManifestRules`) | adds `RECORD_AUDIO`; removes `BLUETOOTH` and `MODIFY_AUDIO_SETTINGS`; sets `installLocation` `auto` |
 
 `libopenxr_loader.so` is the vendor-neutral Khronos loader, so both APKs keep it. Libraries not listed here are packaged as usual.
 
@@ -184,6 +184,9 @@ A correct **Quest** build reports:
 - the application meta-data `com.oculus.ossplash.background` = `passthrough-contextual` (passthrough before the splash screen). `badging` does not show meta-data; read it with `%BT%\aapt2 dump xmltree --file AndroidManifest.xml Builds\CISpatialCompanion-Quest.apk`
 - no `com.pvr.tobactivate.permission.AUTH_CHECK`, and no PICO or Mock HMD libraries under `lib/arm64-v8a/`
 - none of `com.oculus.permission.EYE_TRACKING` (Meta's Social Eye Gaze feature, which `XRScanBuilder` keeps off), `com.oculus.permission.BOUNDARY_VISIBILITY`, `com.oculus.permission.IMPORT_EXPORT_IOT_MAP_DATA` or `com.oculus.permission.USE_COLOCATION_DISCOVERY_API` (the unused Meta features `XRScanBuilder` keeps off)
+- `install-location:'auto'`, which the Meta Horizon Store requires (Player Settings say Auto, and the post-processor sets it in the launcher manifest)
+- the application meta-data `com.oculus.supportedDevices` = `quest3|quest3s` (xmltree): scanning needs the Passthrough Camera API, which only Quest 3 and 3S have. Unity's Meta Quest feature targets the same two (`eureka` is its name for Quest 3), and the post-processor replaces its value with Meta's documented names
+- none of `android.permission.BLUETOOTH`, `android.permission.MODIFY_AUDIO_SETTINGS` or the feature `android.hardware.bluetooth`, declared (`uses-feature`) or implied (`uses-implied-feature`, which BLUETOOTH brings as a required feature): Unity adds both permissions with the microphone, the app uses neither, and the post-processor removes them (VRC.Quest.Security.2, minimum permissions)
 
 A correct **Pico** build has `RECORD_AUDIO` + `com.pvr.tobactivate.permission.AUTH_CHECK` and `pvr.*` / `enable_scene_anchor` manifest entries, and **must not** contain the Meta-only permissions above. Verified: the two APKs' manifests differ exactly along these lines.
 

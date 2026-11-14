@@ -16,6 +16,7 @@ namespace XRScan.Mocks
 
         public bool IsAvailable => true;
         public bool SupportsRgbFrames => true;
+        public Vector2Int FrameSize => _frame != null ? new Vector2Int(_frame.width, _frame.height) : Vector2Int.zero;
 
         public void StartCapture() => _capturing = true;
         public void StopCapture() => _capturing = false;
@@ -38,7 +39,7 @@ namespace XRScan.Mocks
             return _frame.EncodeToJPG(quality);
         }
 
-        public Matrix4x4 GetCameraIntrinsics() => Matrix4x4.identity;
+        public Matrix4x4 GetCameraIntrinsics() => Matrix4x4.zero; // a synthetic image has no lens
 
         public Pose GetCameraPose()
         {

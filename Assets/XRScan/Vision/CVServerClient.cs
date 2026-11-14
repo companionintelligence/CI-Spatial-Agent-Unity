@@ -11,7 +11,8 @@ namespace XRScan.Vision
 {
     /// <summary>
     /// Async HTTP client for the remote CV server (/v1/detect, /v1/segment, /v1/florence).
-    /// Ported from CompanionScan; the base URL comes from ServerConfig and is never hardcoded.
+    /// Ported from CompanionScan; the base URL and the API token come from ServerConfig (the runtime
+    /// configuration) and are never hardcoded. The server answers every route only with that token.
     /// </summary>
     public class CVServerClient
     {
@@ -78,6 +79,7 @@ namespace XRScan.Vision
                 request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
                 request.downloadHandler = new DownloadHandlerBuffer();
                 request.SetRequestHeader("Content-Type", "application/json");
+                _config?.ApplyAuthorization(request);
                 request.timeout = timeout;
 
                 var operation = request.SendWebRequest();
@@ -91,7 +93,8 @@ namespace XRScan.Vision
                     return JsonConvert.DeserializeObject<T>(request.downloadHandler.text);
                 }
 
-                lastError = new Exception($"CV server error ({request.responseCode}): {request.error}");
+                lastError = new CvServerException(request.responseCode, request.error);
+                if (request.responseCode >= 400 && request.responseCode < 500) break; // a retry gets the same answer
                 if (attempt < retries)
                 {
                     await Task.Delay(Mathf.Max(0, Mathf.RoundToInt(delaySeconds * 1000f * (attempt + 1))), CancellationToken.None);
@@ -100,5 +103,22 @@ namespace XRScan.Vision
 
             throw lastError ?? new Exception("CV server request failed.");
         }
+    }
+
+    /// <summary>A CV server request that failed: the HTTP status (0 when the server was not reached) and the error.</summary>
+    public class CvServerException : Exception
+    {
+        public CvServerException(long responseCode, string error)
+            : base($"CV server error ({responseCode}): {error}")
+        {
+            ResponseCode = responseCode;
+            Error = error ?? string.Empty;
+        }
+
+        public long ResponseCode { get; }
+        public string Error { get; }
+
+        /// <summary>What to tell the user.</summary>
+        public string UserMessage => ServerConfig.DescribeFailure(ResponseCode, Error);
     }
 }

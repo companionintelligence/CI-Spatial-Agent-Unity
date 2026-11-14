@@ -34,6 +34,20 @@ namespace XRScan.Core
         [Tooltip("Open the settings panel automatically at startup while the LLM or speech server is not configured.")]
         public bool openSettingsWhenUnconfigured = true;
 
+        [Header("Reporting AI replies")]
+        [Tooltip("Where Report sends an AI reply the user reports: a mailto: address (the default, the company's published " +
+                 "support address, which needs no server) or an https:// endpoint that takes a JSON POST. The env var " +
+                 "XRSCAN_REPORT_DESTINATION overrides it in the Editor and on desktop. The real destination and how long " +
+                 "reports are kept are the owner's decision; update the privacy policy with them.")]
+        public string replyReportDestination = ReplyReporting.DefaultDestination;
+
+        /// <summary>The report destination: the environment variable, then this asset, then the default address.</summary>
+        public string ResolveReplyReportDestination()
+        {
+            string value = ConfigOverrides.Resolve(null, ReplyReporting.EnvDestinationKey, replyReportDestination, out _);
+            return string.IsNullOrWhiteSpace(value) ? ReplyReporting.DefaultDestination : value;
+        }
+
         /// <summary>Applies the transport policy for the current build type; returns rejected (non-LAN) entries.</summary>
         public List<string> ApplyTransportPolicy() => ApplyTransportPolicy(CleartextPolicy.IsDevelopmentBuild);
 
