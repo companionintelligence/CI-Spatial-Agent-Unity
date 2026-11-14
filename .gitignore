@@ -37,6 +37,13 @@ ExportedObj/
 *.opendb
 *.VC.db
 
+# Signing material never belongs in the repository. A release keystore lives outside it (docs/BUILD.md);
+# CI decodes its keystore into the project folder as release.keystore for the length of a build.
+*.jks
+*.keystore
+*.p12
+keystore.properties
+
 # Unity crash / build reports
 sysinfo.txt
 *.apk

@@ -1,0 +1,292 @@
+# Signed release builds of the Meta Quest app, through the same build entry point as local builds
+# (XRScan.EditorTools.XRScanBuilder.BuildQuest -release). The only workflow that reads the release signing
+# secrets. It runs only for:
+#   - a pushed v* tag whose commit is on main; the tag must be v<Player Settings > Version>, and
+#   - a manual run (Actions > Release > Run workflow) from main or from such a tag, which can also build an
+#     Android App Bundle instead of the APK.
+# The signed build is its own job in the "release" environment: keep the four ANDROID_* secrets there,
+# require a reviewer, and let only main and v* tags deploy to it (docs/CI.md, "Release builds").
+#
+# During a signed build Unity writes both signing passwords in plain text into Library/Bee and Gradle's caches,
+# and anyone who can open a pull request in this public repository can read its Actions caches. So the signed
+# job restores the Library cache read-only, never saves a cache, never uploads anything but the signed package,
+# and deletes the decoded keystore when it ends.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'apk: the Meta Horizon Store package. aab: an Android App Bundle of the same build.'
+        type: choice
+        options: [apk, aab]
+        default: apk
+
+permissions:
+  contents: read
+
+# One release run per tag or branch; never cancel a started run (a cancelled Unity job can skip returning its
+# licence activation).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      unity-version: ${{ steps.unity.outputs.version }}
+      version: ${{ steps.version.outputs.version }}
+      version-code: ${{ steps.version.outputs.code }}
+      package: ${{ steps.package.outputs.kind }}
+    steps:
+      - name: Check that this run builds main or a v* tag on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$GITHUB_REF" in
+            refs/heads/main) ;;
+            refs/tags/v*)
+              # The compare API calls the tagged commit "identical" to main or "behind" it when main contains it.
+              if ! status="$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${GITHUB_SHA}" --jq .status)"; then
+                echo "::error title=Not a release ref::Could not compare ${GITHUB_REF_NAME} with main."
+                exit 1
+              fi
+              if [[ "$status" != identical && "$status" != behind ]]; then
+                echo "::error title=Not a release ref::${GITHUB_REF_NAME} points to a commit that is not on main (${status}). Tag a commit of main."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error title=Not a release ref::Release builds run only from main or from a v* tag on main, not from ${GITHUB_REF}."
+              exit 1
+              ;;
+          esac
+          echo "Building \`${GITHUB_REF_NAME}\` at \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read the Unity version from ProjectSettings/ProjectVersion.txt
+        id: unity
+        run: |
+          version="$(sed -n 's/^m_EditorVersion:[[:space:]]*//p' ProjectSettings/ProjectVersion.txt | tr -d '\r' | head -n 1)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+[abfp][0-9]+$ ]]; then
+            echo "::error file=ProjectSettings/ProjectVersion.txt::Could not read m_EditorVersion (got '${version}')."
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Unity editor \`${version}\` (from ProjectSettings/ProjectVersion.txt)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Read the app version from Player Settings
+        # Player Settings > Version (bundleVersion) is the one place the version is set: XRScanBuilder uses it as
+        # the versionName and derives the versionCode from it, MAJOR*1000000 + MINOR*1000 + PATCH.
+        id: version
+        run: |
+          settings=ProjectSettings/ProjectSettings.asset
+          version="$(sed -n 's/^[[:space:]]*bundleVersion:[[:space:]]*//p' "$settings" | tr -d '\r' | head -n 1)"
+          if [[ ! "$version" =~ ^([0-9]{1,4})\.([0-9]{1,3})\.([0-9]{1,3})([-+][0-9A-Za-z.+-]*)?$ ]]; then
+            echo "::error file=${settings}::bundleVersion '${version}' is not MAJOR.MINOR.PATCH with MINOR and PATCH below 1000."
+            exit 1
+          fi
+          code=$(( 10#${BASH_REMATCH[1]} * 1000000 + 10#${BASH_REMATCH[2]} * 1000 + 10#${BASH_REMATCH[3]} ))
+          if (( code < 1 || code > 2100000000 )); then
+            echo "::error file=${settings}::bundleVersion '${version}' gives versionCode ${code}, outside 1 to 2100000000."
+            exit 1
+          fi
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v${version}" ]]; then
+            echo "::error file=${settings}::Tag ${GITHUB_REF_NAME} does not match the app version ${version} (Player Settings > Version). Release tags are v<version>: set the version, commit it to main, then tag that commit (docs/BUILD.md)."
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "code=${code}" >> "$GITHUB_OUTPUT"
+          echo "App version \`${version}\`, versionCode \`${code}\` (from Player Settings > Version)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Choose the package
+        id: package
+        env:
+          REQUESTED: ${{ inputs.package }}
+        # A tag builds the APK for the Meta Horizon Store; a manual run builds what was asked for.
+        run: |
+          kind="${REQUESTED:-apk}"
+          if [[ "$kind" != apk && "$kind" != aab ]]; then
+            echo "::error::Unknown package '${kind}'; choose apk or aab."
+            exit 1
+          fi
+          echo "kind=${kind}" >> "$GITHUB_OUTPUT"
+          echo "Package: \`${kind}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the Unity licence secrets
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        # Unity Personal activates from the Unity ID alone; a paid seat also needs UNITY_SERIAL.
+        run: |
+          missing=()
+          [[ -n "$UNITY_EMAIL" ]] || missing+=("UNITY_EMAIL")
+          [[ -n "$UNITY_PASSWORD" ]] || missing+=("UNITY_PASSWORD")
+          if (( ${#missing[@]} > 0 )); then
+            list="$(printf '%s; ' "${missing[@]}")"
+            echo "::error title=Unity licence secrets missing::Add these repository secrets: ${list%; }. See docs/CI.md."
+            exit 1
+          fi
+
+  # The same EditMode and PlayMode tests as CI, without the signing secrets.
+  tests:
+    name: Unity tests
+    needs: setup
+    uses: ./.github/workflows/unity-tests.yml
+    secrets:
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+      UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+
+  build:
+    name: Build the signed Quest ${{ needs.setup.outputs.package == 'aab' && 'app bundle' || 'APK' }}
+    needs: [setup, tests]
+    # Setup has checked the ref already; this keeps the job off every other ref even if Setup changes.
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    # The release environment holds the signing secrets and, with its protection rules, gates this job.
+    environment: release
+    # A cold run (no Library cache) imports the whole project, then compiles IL2CPP.
+    timeout-minutes: 150
+    env:
+      UNITY_VERSION: ${{ needs.setup.outputs.unity-version }}
+      VERSION_NAME: ${{ needs.setup.outputs.version }}
+      VERSION_CODE: ${{ needs.setup.outputs.version-code }}
+      KIND: ${{ needs.setup.outputs.package }}
+      # XRScanBuilder's default output path (Builds/ is git-ignored).
+      PACKAGE: Builds/CISpatialCompanion-Quest.${{ needs.setup.outputs.package }}
+      # game-ci decodes ANDROID_KEYSTORE_BASE64 to this file in the project folder (git-ignored) and passes its
+      # name to the editor as ANDROID_KEYSTORE_NAME, where XRScanBuilder reads it.
+      KEYSTORE_FILE: release.keystore
+    steps:
+      - name: Check the release signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          ANDROID_KEYALIAS_NAME: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+          ANDROID_KEYALIAS_PASS: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+        # Never prints a value. The passwords pass through game-ci's docker and Unity command lines and Unity's
+        # Gradle script, so they must be long, random and made of letters and digits only.
+        run: |
+          missing=()
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASS ANDROID_KEYALIAS_NAME ANDROID_KEYALIAS_PASS; do
+            [[ -n "${!name}" ]] || missing+=("$name")
+          done
+          if (( ${#missing[@]} > 0 )); then
+            list="$(printf '%s; ' "${missing[@]}")"
+            echo "::error title=Release signing secrets missing::A release build is signed with the release keystore and never falls back to the debug key. Add these secrets to the release environment: ${list%; }. See docs/CI.md."
+            exit 1
+          fi
+          if ! printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > /dev/null 2>&1; then
+            echo "::error title=Release signing secrets invalid::ANDROID_KEYSTORE_BASE64 is not valid base64. Encode the .p12 file on one line (docs/CI.md)."
+            exit 1
+          fi
+          for name in ANDROID_KEYSTORE_PASS ANDROID_KEYALIAS_PASS; do
+            if [[ ! "${!name}" =~ ^[A-Za-z0-9]{20,}$ ]]; then
+              echo "::error title=Release signing secrets invalid::${name} must be at least 20 characters, letters and digits only (docs/CI.md)."
+              exit 1
+            fi
+          done
+
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Free disk space for the Unity editor image
+        # The Android editor image is over 8 GB compressed; drop preinstalled SDKs this job never uses
+        # (the image brings its own Android SDK, NDK and JDK).
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force > /dev/null
+          df -h /
+
+      - name: Restore the Library cache (read-only)
+        # The cache the debug builds on main save. Restore only: this job has the signing secrets, so it never
+        # saves a cache (actions/cache/restore has no save step).
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Library
+          key: Library-${{ runner.os }}-android-${{ env.UNITY_VERSION }}-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-${{ runner.os }}-android-${{ env.UNITY_VERSION }}-
+
+      - name: Remove stale helper process IDs from the restored Library
+        # See quest-apk.yml: a stale ID can make the editor kill itself (exit code 137).
+        run: rm -f Library/ilpp.pid Library/MSBuild/buildhost.pid
+
+      - name: Build with XRScanBuilder.BuildQuest -release
+        id: build
+        uses: game-ci/unity-builder@eb1b9fba120c6e62c9fb7a7a81d6c107ce004c45 # v6.0.0
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          # The action runs this release of game-ci/cli, which does the activation and the build
+          # (docs/CI.md, "Pinned actions").
+          cliVersion: v0.1.72
+          unityVersion: ${{ env.UNITY_VERSION }}
+          targetPlatform: Android
+          buildMethod: XRScan.EditorTools.XRScanBuilder.BuildQuest
+          # XRScanBuilder takes the version from Player Settings > Version; skip game-ci's versioning.
+          versioning: None
+          # Without -quit: the builder exits by itself (see quest-apk.yml).
+          manualExit: true
+          # -release makes the builder fail instead of signing with the debug key; -aab builds an app bundle.
+          customParameters: ${{ needs.setup.outputs.package == 'aab' && '-release -aab' || '-release' }}
+          # game-ci writes the keystore to KEYSTORE_FILE and sets ANDROID_KEYSTORE_NAME, ANDROID_KEYSTORE_PASS,
+          # ANDROID_KEYALIAS_NAME and ANDROID_KEYALIAS_PASS in the editor's environment, the names XRScanBuilder
+          # reads. Unity signs the package itself (APK signature scheme v2; a JAR signature for an app bundle).
+          androidKeystoreName: ${{ env.KEYSTORE_FILE }}
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          androidKeyaliasName: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+
+      - name: Delete the decoded keystore
+        if: always()
+        run: |
+          sudo rm -f -- "$KEYSTORE_FILE"
+          if [[ -e "$KEYSTORE_FILE" ]]; then
+            echo "::error::${KEYSTORE_FILE} could not be deleted."
+            exit 1
+          fi
+
+      - name: Verify the package and its signature
+        # The checks the debug APK gets, plus: one signer, not Unity's debug key. The certificate's SHA-256
+        # goes to the run summary; compare it with the key's recorded fingerprint before uploading.
+        run: bash tools/apk/check_quest_package.sh "$PACKAGE" release
+
+      - name: Name the package after its version
+        id: stage
+        run: |
+          # Every build of one version has the same versionCode, so a build that is not a tag carries its commit.
+          name="CISpatialCompanion-Quest-${VERSION_NAME}"
+          if [[ "$GITHUB_REF_TYPE" != tag ]]; then name="${name}-${GITHUB_SHA::7}"; fi
+          mkdir -p dist
+          cp -- "$PACKAGE" "dist/${name}.${KIND}"
+          echo "path=dist/${name}.${KIND}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the signed package
+        # Only the verified APK or app bundle: never Library, logs or anything else from this job.
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: ${{ steps.stage.outputs.path }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
