@@ -137,10 +137,14 @@ if [[ -n "$manifest" ]]; then
     expect "^(minSdkVersion|sdkVersion):'32'$" "Minimum SDK is not API 32"
     expect "^targetSdkVersion:'34'$" "Target SDK is not API 34 (the Meta Horizon Store requires exactly 34)"
     expect "^native-code: 'arm64-v8a'$" "native-code is not exactly arm64-v8a"
+    expect "^install-location:'auto'$" "install-location is not auto (the Meta Horizon Store requires it; Player Settings and QuestManifestRules set it)"
     permission() { printf "name='%s'" "${1//./\\.}"; }
     # Passthrough before the splash screen (Meta camera feature, Passthrough Pre Splash Screen).
     grep -A 2 '"com\.oculus\.ossplash\.background"' <<< "$manifest" | grep -q '"passthrough-contextual"' ||
       errors+=("Missing meta-data com.oculus.ossplash.background = passthrough-contextual (Passthrough Pre Splash Screen)")
+    # Quest 3 and 3S only: scanning needs the Passthrough Camera API, which only they have (QuestManifestRules).
+    grep -A 2 '"com\.oculus\.supportedDevices"' <<< "$manifest" | grep -qF '="quest3|quest3s"' ||
+      errors+=("Missing meta-data com.oculus.supportedDevices = quest3|quest3s, exactly (QuestManifestRules)")
   else
     # bundletool dump manifest: the manifest as XML.
     expect "package=\"com\.companionintelligence\.xrscan\"" "Package name is not com.companionintelligence.xrscan"
@@ -150,14 +154,23 @@ if [[ -n "$manifest" ]]; then
       errors+=("versionName is not ${VERSION_NAME} (Player Settings > Version)")
     expect "android:minSdkVersion=\"32\"" "Minimum SDK is not API 32"
     expect "android:targetSdkVersion=\"34\"" "Target SDK is not API 34 (the Meta Horizon Store requires exactly 34)"
+    expect 'android:installLocation="(auto|0)"' "installLocation is not auto (the Meta Horizon Store requires it; Player Settings and QuestManifestRules set it)"
     permission() { printf 'android:name="%s"' "${1//./\\.}"; }
     grep 'com\.oculus\.ossplash\.background' <<< "$manifest" | grep -q 'passthrough-contextual' ||
       errors+=("Missing meta-data com.oculus.ossplash.background = passthrough-contextual (Passthrough Pre Splash Screen)")
+    grep 'com\.oculus\.supportedDevices' <<< "$manifest" | grep -qF 'android:value="quest3|quest3s"' ||
+      errors+=("Missing meta-data com.oculus.supportedDevices = quest3|quest3s, exactly (QuestManifestRules)")
   fi
   expect "$(permission android.permission.RECORD_AUDIO)" "Missing android.permission.RECORD_AUDIO (added by XRScanManifestPostProcessor)"
   expect "$(permission horizonos.permission.HEADSET_CAMERA)" "Missing horizonos.permission.HEADSET_CAMERA (comes from the Meta AR camera feature)"
   expect "$(permission com.oculus.permission.USE_SCENE)" "Missing com.oculus.permission.USE_SCENE (comes from com.unity.xr.meta-openxr)"
   reject "com\.pvr\.tobactivate\.permission\.AUTH_CHECK" "PICO permission com.pvr.tobactivate.permission.AUTH_CHECK is in the Quest build"
+  # Unity adds both with the microphone and the app uses neither; XRScanManifestPostProcessor removes them (Meta
+  # VRC.Quest.Security.2: request the minimum). BLUETOOTH would also make android.hardware.bluetooth a required feature,
+  # which the same name attribute matches: aapt2's uses-feature and uses-implied-feature, bundletool's <uses-feature>.
+  reject "$(permission android.permission.BLUETOOTH)" "android.permission.BLUETOOTH is in the Quest build (XRScanManifestPostProcessor removes it)"
+  reject "$(permission android.permission.MODIFY_AUDIO_SETTINGS)" "android.permission.MODIFY_AUDIO_SETTINGS is in the Quest build (XRScanManifestPostProcessor removes it)"
+  reject "$(permission android.hardware.bluetooth)" "The Quest build declares or implies the feature android.hardware.bluetooth"
   # Meta features XRScanBuilder keeps off: Social Eye Gaze and the unused anchor, boundary and colocation ones.
   for name in EYE_TRACKING BOUNDARY_VISIBILITY IMPORT_EXPORT_IOT_MAP_DATA USE_COLOCATION_DISCOVERY_API; do
     reject "com\.oculus\.permission\.${name}" "com.oculus.permission.${name} is in the Quest build (its Meta feature should be off)"
@@ -202,7 +215,7 @@ fi
   if [[ "$kind" == apk && -n "$manifest" ]]; then
     echo
     echo '```'
-    grep -E "^(package|sdkVersion|minSdkVersion|targetSdkVersion|native-code|uses-permission):" <<< "$manifest" | sort -u || true
+    grep -E "^(package|install-location|sdkVersion|minSdkVersion|targetSdkVersion|native-code|uses-permission):" <<< "$manifest" | sort -u || true
     echo '```'
   fi
 } >> "$summary"

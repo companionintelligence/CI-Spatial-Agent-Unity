@@ -186,7 +186,7 @@ A correct **Quest** build reports:
 - none of `com.oculus.permission.EYE_TRACKING` (Meta's Social Eye Gaze feature, which `XRScanBuilder` keeps off), `com.oculus.permission.BOUNDARY_VISIBILITY`, `com.oculus.permission.IMPORT_EXPORT_IOT_MAP_DATA` or `com.oculus.permission.USE_COLOCATION_DISCOVERY_API` (the unused Meta features `XRScanBuilder` keeps off)
 - `install-location:'auto'`, which the Meta Horizon Store requires (Player Settings say Auto, and the post-processor sets it in the launcher manifest)
 - the application meta-data `com.oculus.supportedDevices` = `quest3|quest3s` (xmltree): scanning needs the Passthrough Camera API, which only Quest 3 and 3S have. Unity's Meta Quest feature targets the same two (`eureka` is its name for Quest 3), and the post-processor replaces its value with Meta's documented names
-- no `android.permission.BLUETOOTH`, so no `uses-implied-feature: android.hardware.bluetooth`, and no `android.permission.MODIFY_AUDIO_SETTINGS`: Unity adds both with the microphone, the app uses neither, and the post-processor removes them (VRC.Quest.Security.2, minimum permissions)
+- none of `android.permission.BLUETOOTH`, `android.permission.MODIFY_AUDIO_SETTINGS` or the feature `android.hardware.bluetooth`, declared (`uses-feature`) or implied (`uses-implied-feature`, which BLUETOOTH brings as a required feature): Unity adds both permissions with the microphone, the app uses neither, and the post-processor removes them (VRC.Quest.Security.2, minimum permissions)
 
 A correct **Pico** build has `RECORD_AUDIO` + `com.pvr.tobactivate.permission.AUTH_CHECK` and `pvr.*` / `enable_scene_anchor` manifest entries, and **must not** contain the Meta-only permissions above. Verified: the two APKs' manifests differ exactly along these lines.
 
