@@ -166,6 +166,31 @@ namespace XRScan.Tests.EditMode
         }
 
         [Test]
+        public void AQuestionAskedWhileTheModelIsAnswering_IsNotSent_AndTheReplyKeepsItsOwnQuestion()
+        {
+            _stt.OnTranscriptionComplete.Invoke("first question");
+            _llm.IsProcessing = true; // the model is still writing the first reply (OllamaBackend drops requests meanwhile)
+            _stt.OnTranscriptionComplete.Invoke("second question");
+            _llm.IsProcessing = false;
+            _llm.OnResponseReceived.Invoke("First reply.");
+
+            CollectionAssert.AreEqual(new[] { "first question" }, _llm.Prompts, "the second question is not sent");
+            Assert.AreEqual(1, _checker.Calls.Count);
+            Assert.AreEqual("first question", _checker.Calls[0].Key, "the check gets the question the reply answers");
+            Assert.AreEqual("First reply.", _checker.Calls[0].Value);
+            Assert.AreEqual("first question", AiReplies.Last.Question, "a report would send the question the reply answers");
+            Assert.AreEqual("First reply.", AiReplies.Last.Reply);
+            CollectionAssert.AreEqual(new[] { "First reply." }, _tts.Lines);
+
+            // Once the model is free again, the next question is sent and kept with its own reply.
+            Ask("third question", "Third reply.");
+            CollectionAssert.AreEqual(new[] { "first question", "third question" }, _llm.Prompts);
+            Assert.AreEqual("third question", _checker.Calls[1].Key);
+            Assert.AreEqual("third question", AiReplies.Last.Question);
+            Assert.AreEqual("Third reply.", AiReplies.Last.Reply);
+        }
+
+        [Test]
         public void WithoutAChecker_EveryReplyIsWithheld()
         {
             _conversation.Configure(_stt, _llm, _tts, null); // FakeLlm brings no reply check of its own

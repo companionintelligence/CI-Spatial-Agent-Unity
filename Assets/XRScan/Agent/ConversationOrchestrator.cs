@@ -16,7 +16,8 @@ namespace XRScan.Agent
     /// reply is never spoken, shown, logged or kept.</para>
     /// <para>Each reply that passes is recorded in <see cref="AiReplies"/> with its question and model, so the user can
     /// report it; a reply the user hides stops being spoken. A withheld reply is not recorded, so the last reply that
-    /// was spoken stays the one the user can report.</para>
+    /// was spoken stays the one the user can report. One question goes to the model at a time: a question asked while
+    /// it is still answering is not sent, so a reply is never checked or recorded with a question it did not answer.</para>
     /// </summary>
     public class ConversationOrchestrator : MonoBehaviour
     {
@@ -93,13 +94,25 @@ namespace XRScan.Agent
         /// <summary>Push-to-talk toggle — bind to a controller button.</summary>
         public void ToggleListen() => _stt?.ToggleListening();
 
+        /// <summary>
+        /// Sends the user's question to the model, one at a time. A question that arrives while the model is still
+        /// answering is not sent (the backend would drop it anyway) and does not replace the question kept for the reply,
+        /// so the reply that comes is checked and recorded with the question it answers.
+        /// </summary>
         private void HandleTranscript(string text)
         {
+            if (_llm == null) return;
+            if (_llm.IsProcessing)
+            {
+                Debug.Log("[Conversation] The model is still answering the last question; this one was not sent.");
+                return;
+            }
+
             _question = text ?? string.Empty;
             string ctx = knowledge != null ? knowledge.BuildContext() : string.Empty;
             string prompt = string.IsNullOrEmpty(ctx) ? text : ctx + "\n\nUser question: " + text;
             Debug.Log("[Conversation] Q: " + text);
-            _llm?.SendTextRequest(prompt);
+            _llm.SendTextRequest(prompt);
         }
 
         /// <summary>Every reply of the LLM backend, text or vision request alike, arrives here and goes to the check.</summary>

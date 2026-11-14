@@ -22,21 +22,25 @@ namespace XRScan.Tests.EditMode
         public void ToggleListening() { }
     }
 
-    /// <summary>A language model that records the prompt; the test answers by invoking <see cref="OnResponseReceived"/>.</summary>
+    /// <summary>
+    /// A language model that records every prompt it is sent; the test answers by invoking <see cref="OnResponseReceived"/>,
+    /// and sets <see cref="IsProcessing"/> while the model is meant to be still writing a reply.
+    /// </summary>
     internal class FakeLlm : ILlmBackend
     {
-        public string LastPrompt;
+        public readonly List<string> Prompts = new List<string>();
+        public string LastPrompt => Prompts.Count > 0 ? Prompts[Prompts.Count - 1] : null;
         public bool IsInitialized => true;
         public bool IsConnected => true;
-        public bool IsProcessing => false;
+        public bool IsProcessing { get; set; }
         public string ServerAddress => "test";
         public string ModelName => "test-model:1b";
         public UnityEvent OnProcessingStarted { get; } = new UnityEvent();
         public UnityEvent<string> OnResponseReceived { get; } = new StringUnityEvent();
         public UnityEvent<string> OnError { get; } = new StringUnityEvent();
         public void Initialize() { }
-        public void SendTextRequest(string prompt) => LastPrompt = prompt;
-        public void SendVisionRequest(Texture2D image, string prompt) => LastPrompt = prompt;
+        public void SendTextRequest(string prompt) => Prompts.Add(prompt);
+        public void SendVisionRequest(Texture2D image, string prompt) => Prompts.Add(prompt);
     }
 
     /// <summary>Text-to-speech that records every line it is asked to speak.</summary>
