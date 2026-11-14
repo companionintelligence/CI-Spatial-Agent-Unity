@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using NUnit.Framework;
@@ -129,6 +130,36 @@ namespace XRScan.Tests.EditMode
             Assert.GreaterOrEqual(detector.Prompt.Split('.').Length, 10, "the prompt lists the objects to look for");
             StringAssert.EndsWith(" .", detector.Prompt, "GroundingDINO's \"a . b .\" form");
             Assert.AreEqual("cup", _pins.Pins[0].label);
+        }
+
+        [Test]
+        public void PinLabels_AreOnlyWordsThePromptAskedFor()
+        {
+            // A label is shown on its pin and spoken by the companion, so model text outside the prompt never gets there.
+            var detector = new FakeDetector()
+                .Box("Remote Control", 0.1f, 0.1f, 0.2f, 0.2f)
+                .Box("cup mug", 0.3f, 0.1f, 0.4f, 0.2f)
+                .Box("hate them all", 0.5f, 0.1f, 0.6f, 0.2f)
+                .Box("cup <b>now</b>", 0.7f, 0.1f, 0.8f, 0.2f)
+                .Box("", 0.1f, 0.5f, 0.2f, 0.6f);
+            detector.Result.labels.RemoveAt(4); // and one box without a label at all
+            _scan.Configure(new FakeCamera(), detector);
+
+            Assert.AreEqual(5, ScanOnce());
+            CollectionAssert.AreEqual(new[] { "remote control", "cup mug", "object", "object", "object" },
+                _pins.Pins.Select(p => p.label).ToArray());
+            CollectionAssert.AreEqual(_pins.Pins.Select(p => p.label).ToArray(), _pins.Pins.Select(p => p.semanticLabel).ToArray());
+        }
+
+        [TestCase("lamp", "lamp . cup .", "lamp")]
+        [TestCase("  Picture   Frame ", ScanController.DefaultDetectionPrompt, "picture frame")]
+        [TestCase("frame picture", ScanController.DefaultDetectionPrompt, "frame picture")]
+        [TestCase("knife", ScanController.DefaultDetectionPrompt, ScanController.UncheckedLabel)]
+        [TestCase("cup", "", ScanController.UncheckedLabel)]
+        [TestCase("...", "cup .", ScanController.UncheckedLabel)]
+        public void CheckedLabel(string label, string prompt, string expected)
+        {
+            Assert.AreEqual(expected, ScanController.CheckedLabel(label, prompt));
         }
 
         [Test]

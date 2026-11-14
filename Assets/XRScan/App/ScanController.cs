@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEngine;
 using XRScan.Core;
@@ -11,7 +13,9 @@ namespace XRScan.App
     /// world point, and add a spatial pin. Backend-agnostic — the camera and detector are injected,
     /// so the same flow runs against mocks in the Editor or the real camera + CV server on device.
     /// When the detector is not ready (no vision server set) it tells the user so through
-    /// <see cref="UserNotices"/> and places nothing.
+    /// <see cref="UserNotices"/> and places nothing. A pin's label is shown in the room and spoken by the companion, so it
+    /// must be words the app asked for (<see cref="CheckedLabel"/>); anything else the vision model returns becomes
+    /// "object".
     /// </summary>
     public class ScanController : MonoBehaviour
     {
@@ -23,6 +27,11 @@ namespace XRScan.App
             "chair . table . sofa . bed . lamp . cup . mug . bottle . bowl . book . laptop . monitor . keyboard . " +
             "phone . remote control . plant . vase . clock . picture frame . shelf . cabinet . door . window . box . " +
             "bag . pillow .";
+
+        /// <summary>The label of a box whose own label is missing or did not pass <see cref="CheckedLabel"/>.</summary>
+        public const string UncheckedLabel = "object";
+
+        private static readonly Regex Words = new Regex(@"[\p{L}\p{N}]+", RegexOptions.CultureInvariant);
 
         [SerializeField] private ViewportRaycaster raycaster;
         [SerializeField] private SpatialPinManager pinManager;
@@ -111,7 +120,7 @@ namespace XRScan.App
                 float score = i < detection.scores.Count ? detection.scores[i] : 1f;
                 if (score < minScore) continue;
 
-                string label = i < detection.labels.Count ? detection.labels[i] : "object";
+                string label = CheckedLabel(i < detection.labels.Count ? detection.labels[i] : null, prompt);
                 if (!BoundingBoxUtils.TryNormalize(detection.bboxes[i], frame.imageWidth, frame.imageHeight, out var norm))
                     continue;
 
@@ -138,6 +147,29 @@ namespace XRScan.App
 
             Debug.Log($"[ScanController] Placed {placed} pin(s).");
             return placed;
+        }
+
+        /// <summary>
+        /// The check of the scan path's model text. The vision server labels each box with the phrase of the prompt that
+        /// matched, so a label whose every word is a word of <paramref name="prompt"/> is text the app asked for, and is
+        /// kept (lower case, words separated by single spaces). Any other label, or none, is <see cref="UncheckedLabel"/>,
+        /// because it is shown on its pin, spoken by the companion and sent to the language model without any other check.
+        /// </summary>
+        public static string CheckedLabel(string label, string prompt)
+        {
+            if (string.IsNullOrWhiteSpace(label) || string.IsNullOrWhiteSpace(prompt)) return UncheckedLabel;
+
+            var asked = new HashSet<string>();
+            foreach (Match word in Words.Matches(prompt)) asked.Add(word.Value.ToLowerInvariant());
+
+            var kept = new List<string>();
+            foreach (Match word in Words.Matches(label))
+            {
+                string w = word.Value.ToLowerInvariant();
+                if (!asked.Contains(w)) return UncheckedLabel;
+                kept.Add(w);
+            }
+            return kept.Count == 0 ? UncheckedLabel : string.Join(" ", kept);
         }
 
         /// <summary>
